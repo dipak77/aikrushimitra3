@@ -1,13 +1,27 @@
-
 {
   "name": "ai-krushi-mitra",
   "version": "1.0.0",
   "description": "Smart farming assistant for Indian farmers",
-  "main": "server.js",
+  "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.19.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "lucide-react": "^0.390.0",
+    "recharts": "^2.12.7",
+    "@google/genai": "*",
+    "vite": "^5.2.11",
+    "@vitejs/plugin-react": "^4.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0"
   }
 }

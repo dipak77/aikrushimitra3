@@ -1,17 +1,23 @@
+import express from 'express';
+import { createServer } from 'vite';
 
-const express = require('express');
-const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Serve static files from the current directory
-app.use(express.static(__dirname));
+async function startServer() {
+  // Create Vite server in middleware mode. 
+  // This allows us to serve the React app with HMR and on-the-fly compilation
+  const vite = await createServer({
+    server: { middlewareMode: true },
+    appType: 'spa', 
+  });
 
-// Send index.html for any request to support client-side routing if added later
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
+  // Use vite's connect instance as middleware
+  app.use(vite.middlewares);
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
+
+startServer();
