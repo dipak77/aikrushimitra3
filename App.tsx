@@ -50,7 +50,6 @@ function createPCMChunk(data: Float32Array): GenAIBlob {
 }
 
 // --- MOCK DATA ---
-// Note: Content data remains static for demo, but headers will be localized.
 const MOCK_BLOGS: BlogPost[] = [
   {
     id: '1',
@@ -204,12 +203,10 @@ const Header = ({ title, subtitle, onBack }: { title: string, subtitle?: string,
 );
 
 // --- VIEWS ---
-
 const Hub = ({ lang, user, onNavigate }: any) => {
   const t = TRANSLATIONS[lang];
   return (
     <div className="h-full overflow-y-auto custom-scrollbar bg-slate-50">
-      {/* Desktop Welcome Header */}
       <div className="px-6 md:px-10 pt-10 pb-6">
         <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 animate-enter">
           <div>
@@ -233,7 +230,6 @@ const Hub = ({ lang, user, onNavigate }: any) => {
           </div>
         </div>
 
-        {/* Alert Pill */}
         <div className="mt-8 flex items-center gap-4 bg-amber-50 border border-amber-100 p-4 rounded-2xl animate-enter delay-100 shadow-sm max-w-3xl">
           <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
              <Bell size={20} className="text-amber-600 animate-swing" />
@@ -246,10 +242,7 @@ const Hub = ({ lang, user, onNavigate }: any) => {
         </div>
       </div>
 
-      {/* Responsive Bento Grid */}
       <div className="px-6 md:px-10 pb-32 md:pb-10 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        
-        {/* Weather Card - Large */}
         <div onClick={() => onNavigate('WEATHER')} className="col-span-1 md:col-span-2 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] p-8 text-white shadow-xl shadow-blue-200 relative overflow-hidden group cursor-pointer transition-transform hover:scale-[1.01] animate-enter delay-100 h-64 flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-white/20 transition-all duration-700"></div>
           <div className="relative z-10 flex justify-between items-start">
@@ -268,7 +261,6 @@ const Hub = ({ lang, user, onNavigate }: any) => {
           </div>
         </div>
 
-        {/* Quick Action: Disease Detect */}
         <div onClick={() => onNavigate('DISEASE_DETECTOR')} className="bg-white rounded-[2.5rem] p-6 shadow-lg shadow-slate-100 border border-slate-100 cursor-pointer hover:border-emerald-200 transition-all hover:-translate-y-1 group animate-enter delay-200 flex flex-col justify-between h-64">
           <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all duration-500 shadow-inner">
             <ScanLine size={32} />
@@ -282,7 +274,6 @@ const Hub = ({ lang, user, onNavigate }: any) => {
           </div>
         </div>
 
-        {/* Quick Action: Market */}
         <div onClick={() => onNavigate('MARKET')} className="bg-white rounded-[2.5rem] p-6 shadow-lg shadow-slate-100 border border-slate-100 cursor-pointer hover:border-orange-200 transition-all hover:-translate-y-1 group animate-enter delay-200 flex flex-col justify-between h-64">
           <div className="w-16 h-16 rounded-3xl bg-orange-50 text-orange-600 flex items-center justify-center group-hover:bg-orange-500 group-hover:text-white transition-all duration-500 shadow-inner">
             <TrendingUp size={32} />
@@ -298,7 +289,6 @@ const Hub = ({ lang, user, onNavigate }: any) => {
           </div>
         </div>
 
-        {/* Schemes Row */}
         <div className="col-span-1 md:col-span-3 lg:col-span-4 mt-4 animate-enter delay-300">
            <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-black text-slate-900">{t.govt_schemes}</h3>
@@ -314,7 +304,6 @@ const Hub = ({ lang, user, onNavigate }: any) => {
            </div>
         </div>
 
-        {/* Blog Feed */}
         <div className="col-span-1 md:col-span-3 lg:col-span-4 mt-4 animate-enter delay-300">
            <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-black text-slate-900">{t.latest_news}</h3>
@@ -352,6 +341,8 @@ const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProf
   const sessionRef = useRef<any>(null);
   const audioContextInRef = useRef<AudioContext | null>(null);
   const audioContextOutRef = useRef<AudioContext | null>(null);
+  const nextStartTime = useRef<number>(0);
+  const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
 
   useEffect(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
 
@@ -359,6 +350,14 @@ const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProf
     if (active) {
        sessionRef.current?.close();
        setActive(false);
+       
+       // Stop all playing audio
+       sourcesRef.current.forEach(source => {
+           try { source.stop(); } catch(e) {}
+       });
+       sourcesRef.current.clear();
+       nextStartTime.current = 0;
+
        audioContextInRef.current?.close();
        audioContextOutRef.current?.close();
     } else {
@@ -371,6 +370,10 @@ const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProf
          await ctxIn.resume(); await ctxOut.resume();
          audioContextInRef.current = ctxIn; audioContextOutRef.current = ctxOut;
          
+         // Reset audio scheduling cursors
+         nextStartTime.current = 0;
+         sourcesRef.current.clear();
+
          const source = ctxIn.createMediaStreamSource(stream);
          const processor = ctxIn.createScriptProcessor(4096, 1, 1);
          source.connect(processor); processor.connect(ctxIn.destination);
@@ -381,8 +384,8 @@ const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProf
                 responseModalities: [Modality.AUDIO], 
                 speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } },
                 systemInstruction: lang === 'mr' 
-                    ? `तुम्ही 'AI कृषी मित्र' आहात. मराठीत बोला. ${user.crop} आणि हवामानाबद्दल चर्चा करा.` 
-                    : `You are AI Krushi Mitra. Speak in Hindi/English as per prompt. Help with farming.`
+                    ? `तुम्ही 'AI कृषी मित्र' आहात, एक हुशार आणि प्रेमळ शेतकरी मित्र. अस्सल मराठमोळ्या ग्रामीण भाषेत बोला. उत्तरे छोटी आणि स्पष्ट द्या. खूप बडबड नको. 'राम राम', 'पाटील' असे शब्द वापरा. ${user.crop} पिकाबद्दल आणि हवामानाबद्दल अचूक माहिती द्या. तुमचे बोलणे स्वच्छ आणि स्पष्ट असावे.` 
+                    : `You are 'AI Krushi Mitra', a smart and friendly farmer friend. Speak in a warm, rural style in simple English/Hindi. Keep answers short, clear and practical. Use local greetings. Give accurate info about ${user.crop} and weather.`
             },
             callbacks: {
                onopen: () => { 
@@ -393,11 +396,40 @@ const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProf
                   };
                },
                onmessage: async (msg) => {
-                  const audioData = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+                  const serverContent = msg.serverContent;
+                  
+                  // 1. Handle Audio Interruption (User spoke, so stop model)
+                  if (serverContent?.interrupted) {
+                      sourcesRef.current.forEach(source => {
+                          try { source.stop(); } catch(e) {}
+                      });
+                      sourcesRef.current.clear();
+                      nextStartTime.current = 0;
+                  }
+
+                  // 2. Handle Audio Output
+                  const audioData = serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
                   if (audioData) {
                      const buffer = await decodeAudioData(decode(audioData), ctxOut, 24000, 1);
-                     const src = ctxOut.createBufferSource();
-                     src.buffer = buffer; src.connect(ctxOut.destination); src.start();
+                     
+                     const source = ctxOut.createBufferSource();
+                     source.buffer = buffer;
+                     source.connect(ctxOut.destination);
+                     
+                     // Gapless Playback Logic
+                     const currentTime = ctxOut.currentTime;
+                     if (nextStartTime.current < currentTime) {
+                         nextStartTime.current = currentTime;
+                     }
+                     
+                     source.start(nextStartTime.current);
+                     nextStartTime.current += buffer.duration;
+                     
+                     // Track source to stop on interruption
+                     sourcesRef.current.add(source);
+                     source.onended = () => {
+                         sourcesRef.current.delete(source);
+                     };
                   }
                }
             }
