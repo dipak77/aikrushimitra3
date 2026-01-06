@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ViewState, Language, UserProfile, ChatMessage, BlogPost } from './types';
 import { TRANSLATIONS } from './constants';
 import { 
@@ -9,7 +8,8 @@ import {
   CheckCircle2, Zap, Loader2, Volume2, UserCircle, Clock, 
   MicOff, RefreshCw, Mic2, Bell, ShieldCheck, 
   CloudRain, Zap as Lightning, Globe, Lightbulb, Play, Pause, ThermometerSun,
-  Menu, LogOut, Settings, LayoutDashboard, FileText, Activity, Info
+  Menu, LogOut, Settings, LayoutDashboard, FileText, Activity, Info, WifiOff,
+  Signal
 } from 'lucide-react';
 import { Button } from './components/Button';
 import { getAIFarmingAdvice, analyzeCropDisease } from './services/geminiService';
@@ -375,72 +375,180 @@ const Hub = ({ lang, user, onNavigate }: any) => {
 
 const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProfile, onBack: () => void }) => {
   const t = TRANSLATIONS[lang];
-  const [active, setActive] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [status, setStatus] = useState<'idle' | 'connecting' | 'connected' | 'error' | 'reconnecting'>('idle');
+  const [retryCount, setRetryCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   
   // Audio state
   const sessionRef = useRef<any>(null);
   const audioContextInRef = useRef<AudioContext | null>(null);
   const audioContextOutRef = useRef<AudioContext | null>(null);
+  const analyserInRef = useRef<AnalyserNode | null>(null);
+  const analyserOutRef = useRef<AnalyserNode | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const nextStartTime = useRef<number>(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  
+  const userDisconnecting = useRef(false);
+  const reconnectTimeoutRef = useRef<any>(null);
 
-  useEffect(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+        cleanup(true);
+    }
+  }, []);
 
-  const toggleSession = async () => {
-    if (active) {
-       sessionRef.current?.close();
-       setActive(false);
-       
-       // Stop all playing audio
-       sourcesRef.current.forEach(source => {
-           try { source.stop(); } catch(e) {}
-       });
-       sourcesRef.current.clear();
-       nextStartTime.current = 0;
+  // Visualizer Loop
+  useEffect(() => {
+    let animationId: number;
+    const draw = () => {
+        const canvas = canvasRef.current;
+        const analyserIn = analyserInRef.current;
+        const analyserOut = analyserOutRef.current;
+        
+        if (canvas && (analyserIn || analyserOut)) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                const width = canvas.width;
+                const height = canvas.height;
+                ctx.clearRect(0, 0, width, height);
 
-       audioContextInRef.current?.close();
-       audioContextOutRef.current?.close();
-    } else {
-       try {
-         const stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, echoCancellation: true } });
-         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                // Setup bar visualizer
+                const bufferLength = 32;
+                const dataArrayIn = new Uint8Array(bufferLength);
+                const dataArrayOut = new Uint8Array(bufferLength);
+                
+                if (analyserIn) analyserIn.getByteFrequencyData(dataArrayIn);
+                if (analyserOut) analyserOut.getByteFrequencyData(dataArrayOut);
+
+                const barWidth = (width / bufferLength) * 1.5;
+                let x = 0;
+
+                for(let i = 0; i < bufferLength; i++) {
+                    const vIn = dataArrayIn[i] / 255.0;
+                    const vOut = dataArrayOut[i] / 255.0;
+                    const v = Math.max(vIn, vOut); // Combine amplitudes
+                    
+                    const barHeight = v * height * 1.5; // Scale up
+
+                    // Gradient for farming feel
+                    const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight);
+                    gradient.addColorStop(0, '#10b981'); // Emerald 500
+                    gradient.addColorStop(1, '#34d399'); // Emerald 400
+
+                    ctx.fillStyle = gradient;
+                    // Draw rounded bars
+                    ctx.beginPath();
+                    ctx.roundRect(x, height / 2 - barHeight / 2, barWidth - 2, barHeight, 5);
+                    ctx.fill();
+
+                    x += barWidth + 1;
+                }
+            }
+        }
+        animationId = requestAnimationFrame(draw);
+    };
+    if (status === 'connected') {
+        draw();
+    }
+    return () => cancelAnimationFrame(animationId);
+  }, [status]);
+
+  const cleanup = (fullyStop = false) => {
+    if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+    sessionRef.current?.close();
+    
+    // Stop all playing audio
+    sourcesRef.current.forEach(source => {
+        try { source.stop(); } catch(e) {}
+    });
+    sourcesRef.current.clear();
+    nextStartTime.current = 0;
+
+    audioContextInRef.current?.close();
+    audioContextOutRef.current?.close();
+    
+    audioContextInRef.current = null;
+    audioContextOutRef.current = null;
+    sessionRef.current = null;
+    
+    if (fullyStop) {
+        setStatus('idle');
+    }
+  };
+
+  const connectToAI = async (isRetry = false) => {
+      if (userDisconnecting.current) return;
+      
+      setStatus(isRetry ? 'reconnecting' : 'connecting');
+      
+      try {
+         const stream = await navigator.mediaDevices.getUserMedia({ 
+             audio: { 
+                 sampleRate: 16000, 
+                 echoCancellation: true,
+                 noiseSuppression: true,
+                 autoGainControl: true
+             } 
+         });
+
          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
          const ctxIn = new AudioContextClass({ sampleRate: 16000 });
          const ctxOut = new AudioContextClass({ sampleRate: 24000 });
-         await ctxIn.resume(); await ctxOut.resume();
-         audioContextInRef.current = ctxIn; audioContextOutRef.current = ctxOut;
          
-         // Reset audio scheduling cursors
+         // Visualizers
+         const analyserIn = ctxIn.createAnalyser();
+         analyserIn.fftSize = 64;
+         analyserInRef.current = analyserIn;
+
+         const analyserOut = ctxOut.createAnalyser();
+         analyserOut.fftSize = 64;
+         analyserOutRef.current = analyserOut;
+
+         await ctxIn.resume(); 
+         await ctxOut.resume();
+         
+         audioContextInRef.current = ctxIn; 
+         audioContextOutRef.current = ctxOut;
+         
          nextStartTime.current = 0;
          sourcesRef.current.clear();
 
          const source = ctxIn.createMediaStreamSource(stream);
+         source.connect(analyserIn); // Connect mic to analyser
          const processor = ctxIn.createScriptProcessor(4096, 1, 1);
-         source.connect(processor); processor.connect(ctxIn.destination);
+         analyserIn.connect(processor); // Connect analyser to processor
+         processor.connect(ctxIn.destination);
 
+         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
          const session = await ai.live.connect({
             model: 'gemini-2.5-flash-native-audio-preview-09-2025',
             config: { 
                 responseModalities: [Modality.AUDIO], 
                 speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } },
                 systemInstruction: lang === 'mr' 
-                    ? `तुम्ही 'AI कृषी मित्र' आहात, एक हुशार आणि प्रेमळ शेतकरी मित्र. अस्सल मराठमोळ्या ग्रामीण भाषेत बोला. उत्तरे छोटी आणि स्पष्ट द्या. खूप बडबड नको. 'राम राम', 'पाटील' असे शब्द वापरा. ${user.crop} पिकाबद्दल आणि हवामानाबद्दल अचूक माहिती द्या. तुमचे बोलणे स्वच्छ आणि स्पष्ट असावे.` 
-                    : `You are 'AI Krushi Mitra', a smart and friendly farmer friend. Speak in a warm, rural style in simple English/Hindi. Keep answers short, clear and practical. Use local greetings. Give accurate info about ${user.crop} and weather.`
+                    ? `तुम्ही 'AI कृषी मित्र' आहात, एक हुशार आणि प्रेमळ शेतकरी मित्र. अस्सल मराठमोळ्या ग्रामीण भाषेत बोला. उत्तरे छोटी आणि स्पष्ट द्या. 'राम राम', 'पाटील' असे शब्द वापरा. 
+                    शेतकरी: ${user.name}, गाव: ${user.village}, पीक: ${user.crop}.
+                    तुमचे मुख्य काम: शेतकऱ्याशी गप्पा मारणे आणि त्यांच्या समस्या सोडवणे.
+                    महत्वाचे: जर संपर्क तुटला आणि पुन्हा जोडला गेला, तर आधीचा विषय आठवण्याचा प्रयत्न करा आणि संभाषण नैसर्गिक ठेवा. वारंवार स्वतःची ओळख करून देऊ नका.` 
+                    : `You are 'AI Krushi Mitra', a smart and friendly farmer friend. Speak in a warm, rural style in simple English/Hindi. Keep answers short, clear and practical.
+                    Farmer: ${user.name}, Village: ${user.village}, Crop: ${user.crop}.
+                    Key Role: Chat with the farmer and solve their problems.
+                    Important: Maintain conversation continuity. Do not repeat introductions if reconnected.`
             },
             callbacks: {
                onopen: () => { 
-                  setActive(true);
+                  setStatus('connected');
+                  setRetryCount(0);
                   processor.onaudioprocess = (e) => {
                      const blob = createPCMChunk(e.inputBuffer.getChannelData(0));
-                     session.sendRealtimeInput({ media: blob });
+                     sessionPromise.then(s => s.sendRealtimeInput({ media: blob }));
                   };
                },
                onmessage: async (msg) => {
                   const serverContent = msg.serverContent;
                   
-                  // 1. Handle Audio Interruption (User spoke, so stop model)
                   if (serverContent?.interrupted) {
                       sourcesRef.current.forEach(source => {
                           try { source.stop(); } catch(e) {}
@@ -449,43 +557,98 @@ const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProf
                       nextStartTime.current = 0;
                   }
 
-                  // 2. Handle Audio Output
                   const audioData = serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
                   if (audioData) {
                      const buffer = await decodeAudioData(decode(audioData), ctxOut, 24000, 1);
                      
                      const source = ctxOut.createBufferSource();
                      source.buffer = buffer;
-                     source.connect(ctxOut.destination);
+                     source.connect(analyserOut); // Connect output to analyser
+                     analyserOut.connect(ctxOut.destination);
                      
-                     // Gapless Playback Logic
                      const currentTime = ctxOut.currentTime;
-                     if (nextStartTime.current < currentTime) {
-                         nextStartTime.current = currentTime;
+                     if (nextStartTime.current < currentTime + 0.05) {
+                         nextStartTime.current = currentTime + 0.05;
                      }
                      
                      source.start(nextStartTime.current);
                      nextStartTime.current += buffer.duration;
                      
-                     // Track source to stop on interruption
                      sourcesRef.current.add(source);
                      source.onended = () => {
                          sourcesRef.current.delete(source);
                      };
                   }
+               },
+               onclose: () => {
+                   if (!userDisconnecting.current) {
+                       console.log("Session closed unexpectedly. Reconnecting...");
+                       handleAutoReconnect();
+                   } else {
+                       setStatus('idle');
+                   }
+               },
+               onerror: (err) => {
+                   console.error("Session Error:", err);
+                   if (!userDisconnecting.current) {
+                       handleAutoReconnect();
+                   } else {
+                       cleanup(true);
+                       setStatus('error');
+                   }
                }
             }
          });
+         
+         const sessionPromise = Promise.resolve(session);
          sessionRef.current = session;
-       } catch (e) { console.error(e); alert("Microphone access failed."); }
+         
+      } catch (e) { 
+           console.error("Connection Failed", e); 
+           if (!userDisconnecting.current) {
+               handleAutoReconnect();
+           } else {
+               cleanup(true);
+               setStatus('error'); 
+           }
+      }
+  };
+
+  const handleAutoReconnect = () => {
+      cleanup(false); // Clean resources but don't set to idle
+      if (retryCount < 5) {
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff max 10s
+          setStatus('reconnecting');
+          setRetryCount(prev => prev + 1);
+          reconnectTimeoutRef.current = setTimeout(() => {
+              connectToAI(true);
+          }, delay);
+      } else {
+          setStatus('error');
+      }
+  };
+
+  const toggleSession = () => {
+    if (status === 'connected' || status === 'connecting' || status === 'reconnecting') {
+       userDisconnecting.current = true;
+       cleanup(true);
+    } else {
+       userDisconnecting.current = false;
+       setRetryCount(0);
+       connectToAI();
     }
   };
+
+  const isActive = status === 'connected';
+  const isConnecting = status === 'connecting';
+  const isReconnecting = status === 'reconnecting';
+  const isError = status === 'error';
 
   return (
     <div className="h-full bg-slate-900 text-white flex flex-col relative overflow-hidden">
        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-[-20%] left-[-20%] w-[140%] h-[140%] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-900/30 via-slate-900 to-slate-900 animate-pulse"></div>
-          {active && (
+          {(isActive || isReconnecting) && (
              <>
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[100px] animate-scale"></div>
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20"></div>
@@ -495,32 +658,60 @@ const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProf
 
        <div className="relative z-10 px-6 pt-6 md:pt-10 flex justify-between items-center max-w-5xl mx-auto w-full">
           <button onClick={onBack} className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 active:scale-90 transition-transform"><ArrowLeft /></button>
-          <div className="bg-white/5 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest backdrop-blur-md border border-white/5">
-            {active ? <span className="text-emerald-400 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"/> Live Session</span> : "AI Ready"}
+          <div className={`bg-white/5 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest backdrop-blur-md border border-white/5 transition-colors ${isActive ? 'border-emerald-500/30 bg-emerald-900/20' : ''}`}>
+            {isActive ? <span className="text-emerald-400 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"/> Live Session</span> : 
+             isReconnecting ? <span className="text-amber-400 flex items-center gap-2"><RefreshCw size={12} className="animate-spin"/> Reconnecting...</span> :
+             isConnecting ? <span className="text-amber-400 flex items-center gap-2"><Loader2 size={12} className="animate-spin"/> Connecting...</span> :
+             isError ? <span className="text-rose-400 flex items-center gap-2"><WifiOff size={12}/> Connection Failed</span> :
+             "AI Ready"}
           </div>
           <div className="w-12"></div>
        </div>
 
        <div className="flex-1 flex flex-col items-center justify-center relative z-10 p-6 space-y-16 max-w-4xl mx-auto w-full">
           <div className="relative group cursor-pointer" onClick={toggleSession}>
-             {active && (
+             {(isActive || isReconnecting) && (
                 <>
                   <div className="absolute inset-0 bg-emerald-500 rounded-full animate-ping opacity-20 duration-1000"></div>
                   <div className="absolute inset-[-40px] bg-emerald-500/10 rounded-full animate-pulse blur-2xl"></div>
                 </>
              )}
-             <div className={`w-40 h-40 md:w-56 md:h-56 rounded-full flex items-center justify-center shadow-[0_0_80px_rgba(16,185,129,0.2)] transition-all duration-500 relative z-10 border-[8px] ${active ? 'bg-white text-emerald-600 scale-105 border-emerald-400/30' : 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white border-white/10 hover:scale-105 hover:shadow-[0_0_100px_rgba(16,185,129,0.4)]'}`}>
-                {active ? <Mic2 size={64} className="animate-bounce" /> : <Mic size={64} />}
+             
+             {/* Canvas Visualizer Overlay */}
+             <canvas ref={canvasRef} width={220} height={220} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-0 pointer-events-none opacity-60" />
+
+             <div className={`w-40 h-40 md:w-56 md:h-56 rounded-full flex items-center justify-center shadow-[0_0_80px_rgba(16,185,129,0.2)] transition-all duration-500 relative z-10 border-[8px] ${
+                 isActive ? 'bg-white text-emerald-600 scale-105 border-emerald-400/30' : 
+                 isReconnecting ? 'bg-amber-100 text-amber-600 border-amber-400/30' :
+                 isConnecting ? 'bg-amber-100 text-amber-600 border-amber-400/30 animate-pulse' :
+                 isError ? 'bg-rose-100 text-rose-600 border-rose-400/30' :
+                 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white border-white/10 hover:scale-105 hover:shadow-[0_0_100px_rgba(16,185,129,0.4)]'
+                 }`}>
+                {isActive ? <Mic2 size={64} className="animate-bounce-slight" /> : 
+                 isReconnecting ? <Signal size={64} className="animate-pulse" /> :
+                 isConnecting ? <Loader2 size={64} className="animate-spin" /> :
+                 isError ? <RefreshCw size={64} /> :
+                 <Mic size={64} />}
              </div>
           </div>
           
           <div className="text-center space-y-4 animate-enter delay-100">
-             <h2 className="text-4xl md:text-5xl font-black tracking-tight">{active ? t.voice_title : t.voice_tap}</h2>
-             <p className="text-slate-400 font-medium leading-relaxed text-lg max-w-md mx-auto">{t.voice_desc}</p>
+             <h2 className="text-4xl md:text-5xl font-black tracking-tight">
+                 {isActive ? t.voice_title : 
+                  isReconnecting ? "Signal Weak..." :
+                  isConnecting ? "Establishing Link..." :
+                  isError ? "Connection Error" :
+                  t.voice_tap}
+             </h2>
+             <p className="text-slate-400 font-medium leading-relaxed text-lg max-w-md mx-auto">
+                 {isError ? "Check your internet and try again." : 
+                  isReconnecting ? "Trying to reconnect to the farm network..." : 
+                  t.voice_desc}
+             </p>
           </div>
        </div>
 
-       {!active && (
+       {!isActive && !isConnecting && !isReconnecting && (
          <div className="relative z-10 p-6 pb-20 md:pb-12 animate-enter delay-200 max-w-5xl mx-auto w-full">
             <div className="flex flex-wrap justify-center gap-4">
                {t.voice_hints.map((q: string, i: number) => (
