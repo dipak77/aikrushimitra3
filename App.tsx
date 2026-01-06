@@ -591,14 +591,33 @@ const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProf
                 responseModalities: [Modality.AUDIO], 
                 speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } },
                 systemInstruction: lang === 'mr' 
-                    ? `तुम्ही 'AI कृषी मित्र' आहात, एक हुशार आणि प्रेमळ शेतकरी मित्र. अस्सल मराठमोळ्या ग्रामीण भाषेत बोला. उत्तरे छोटी आणि स्पष्ट द्या. 'राम राम', 'पाटील' असे शब्द वापरा. 
-                    शेतकरी: ${user.name}, गाव: ${user.village}, पीक: ${user.crop}.
-                    तुमचे मुख्य काम: शेतकऱ्याशी गप्पा मारणे आणि त्यांच्या समस्या सोडवणे.
+                    ? `तुम्ही 'AI कृषी मित्र' आहात. एक अत्यंत हुशार, प्रेमळ आणि अनुभवी शेतकरी मित्र.
+                    
+                    तुमचे व्यक्तिमत्व:
+                    - तुम्ही एक गावकरी आहात, त्यामुळे तुमची भाषा अस्सल ग्रामीण मराठमोळी असावी.
+                    - 'राम राम', 'पाटील', 'कारभारी' असे शब्द वापरा.
+                    - बोलताना आपुलकी आणि जिव्हाळा असू द्या.
+                    - उत्तरे खूप लांब नको, जसे आपण पारावर गप्पा मारतो तसे बोला.
+                    
+                    शेतकरी माहिती:
+                    नाव: ${user.name}
+                    गाव: ${user.village}
+                    पीक: ${user.crop}
+
                     महत्वाचे: जर संपर्क तुटला आणि पुन्हा जोडला गेला, तर आधीचा विषय आठवण्याचा प्रयत्न करा आणि संभाषण नैसर्गिक ठेवा. वारंवार स्वतःची ओळख करून देऊ नका.` 
-                    : `You are 'AI Krushi Mitra', a smart and friendly farmer friend. Speak in a warm, rural style in simple English/Hindi. Keep answers short, clear and practical.
-                    Farmer: ${user.name}, Village: ${user.village}, Crop: ${user.crop}.
-                    Key Role: Chat with the farmer and solve their problems.
-                    Important: Maintain conversation continuity. Do not repeat introductions if reconnected.`
+                    : `You are 'AI Krushi Mitra', a smart, affectionate, and experienced farmer friend.
+                    
+                    Persona:
+                    - You are a villager, so speak in a warm, rustic, and friendly manner.
+                    - Use local greetings.
+                    - Keep answers concise and conversational, like chatting under a tree.
+                    
+                    Farmer Info:
+                    Name: ${user.name}
+                    Village: ${user.village}
+                    Crop: ${user.crop}
+
+                    Important: If connection drops, resume naturally. Do not re-introduce.`
             },
             callbacks: {
                onopen: () => { 
@@ -711,13 +730,17 @@ const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProf
 
   return (
     <div className="h-full bg-slate-900 text-white flex flex-col relative overflow-hidden">
+       {/* Enhanced Background Animation */}
        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-[-20%] left-[-20%] w-[140%] h-[140%] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-900/30 via-slate-900 to-slate-900 animate-pulse"></div>
+          <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-900/40 via-slate-900 to-slate-950 animate-spin-slow opacity-60"></div>
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20"></div>
+          
+          {/* Floating Particles/Glows */}
+          <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-emerald-500/10 rounded-full blur-[60px] animate-float"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-40 h-40 bg-teal-500/10 rounded-full blur-[60px] animate-float" style={{animationDelay: '1s'}}></div>
+          
           {(isActive || isReconnecting) && (
-             <>
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[100px] animate-scale"></div>
-                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20"></div>
-             </>
+             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[100px] animate-pulse"></div>
           )}
        </div>
 
@@ -833,6 +856,273 @@ const MarketView = ({ lang, onBack }: any) => {
   );
 };
 
+const SchemesView = ({ lang, onBack }: any) => {
+   const t = TRANSLATIONS[lang];
+   return (
+      <div className="h-full bg-slate-50 overflow-y-auto custom-scrollbar">
+         <div className="md:hidden"><Header title={t.schemes_title} subtitle={t.schemes_desc} onBack={onBack} /></div>
+         <div className="hidden md:block px-10 pt-10 pb-6">
+             <h1 className="text-4xl font-black text-slate-900">{t.schemes_title}</h1>
+             <p className="text-slate-500 mt-2 font-medium">{t.schemes_desc}</p>
+         </div>
+         
+         <div className="p-6 md:p-10 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {MOCK_SCHEMES.map((s, i) => (
+               <div key={s.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group animate-enter flex flex-col justify-between" style={{ animationDelay: `${i*100}ms` }}>
+                  <div className="flex justify-between items-start mb-4">
+                     <div className={`w-14 h-14 rounded-2xl ${s.color} flex items-center justify-center`}>
+                        <Landmark size={28} />
+                     </div>
+                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${s.status === 'OPEN' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                        {s.status === 'OPEN' ? t.open_status : t.closed_status}
+                     </span>
+                  </div>
+                  <div>
+                     <h3 className="text-xl font-black text-slate-900 mb-2">{s.title}</h3>
+                     <div className="space-y-2 mb-6">
+                        <div className="flex justify-between text-sm">
+                           <span className="text-slate-400 font-bold">{t.scheme_benefit}:</span>
+                           <span className="font-bold text-slate-800">{s.benefit}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                           <span className="text-slate-400 font-bold">{t.scheme_deadline}:</span>
+                           <span className="font-bold text-slate-800">{s.deadline}</span>
+                        </div>
+                     </div>
+                  </div>
+                  <Button fullWidth variant={s.status === 'OPEN' ? 'primary' : 'outline'} disabled={s.status !== 'OPEN'}>
+                     {t.apply_btn} <ArrowUpRight size={18}/>
+                  </Button>
+               </div>
+            ))}
+         </div>
+      </div>
+   );
+};
+
+const WeatherView = ({ lang, onBack }: any) => {
+   const t = TRANSLATIONS[lang];
+   return (
+      <div className="h-full bg-white overflow-y-auto custom-scrollbar">
+         <div className="md:hidden"><Header title="" onBack={onBack} /></div>
+         
+         <div className="relative bg-gradient-to-br from-blue-600 to-indigo-800 rounded-b-[3rem] md:rounded-[3rem] md:m-8 p-8 pb-12 text-white shadow-2xl overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+            <div className="mt-4 flex flex-col items-center text-center relative z-10 animate-enter">
+               <div className="bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-6 border border-white/20 shadow-lg">Baramati, Pune</div>
+               <Sun size={100} className="text-yellow-300 mb-6 animate-spin-slow drop-shadow-xl"/>
+               <h1 className="text-9xl font-black tracking-tighter">28°</h1>
+               <p className="text-2xl font-medium opacity-90 mt-2">Sunny & Clear</p>
+            </div>
+         </div>
+
+         <div className="p-6 md:p-10 -mt-8 relative z-20 max-w-5xl mx-auto">
+            <div className="grid grid-cols-3 gap-4 md:gap-8">
+               {[
+                  { label: t.wind, val: '12 km/h', icon: Wind },
+                  { label: t.humidity, val: '45%', icon: Droplets },
+                  { label: t.uv_index, val: 'High', icon: Sun },
+               ].map((item, i) => (
+                  <div key={i} className="bg-white p-6 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-50 flex flex-col items-center justify-center gap-3 animate-enter hover:-translate-y-1 transition-transform" style={{ animationDelay: `${i*100}ms` }}>
+                     <item.icon size={28} className="text-blue-500" />
+                     <span className="font-black text-xl text-slate-800">{item.val}</span>
+                     <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{item.label}</span>
+                  </div>
+               ))}
+            </div>
+            
+            <div className="mt-12">
+               <h3 className="font-black text-slate-900 text-xl mb-6 px-2">{t.weather_subtitle}</h3>
+               <div className="space-y-4">
+                  {['Monday', 'Tuesday', 'Wednesday'].map((d, i) => (
+                     <div key={i} className="flex items-center justify-between p-6 bg-slate-50 rounded-[2rem] animate-enter-right hover:bg-white hover:shadow-lg transition-all border border-transparent hover:border-slate-100" style={{ animationDelay: `${i*100 + 300}ms` }}>
+                        <span className="font-bold text-slate-700 w-24">{d}</span>
+                        <div className="flex items-center gap-3 flex-1 justify-center">
+                           <CloudSun size={24} className="text-slate-400"/>
+                           <span className="font-bold text-slate-600">Partly Cloudy</span>
+                        </div>
+                        <span className="font-black text-slate-900 text-lg">26° / 18°</span>
+                     </div>
+                  ))}
+               </div>
+            </div>
+         </div>
+      </div>
+   )
+}
+
+const DiseaseDetector = ({ lang, onBack }: any) => {
+   const t = TRANSLATIONS[lang];
+   const [img, setImg] = useState<string | null>(null);
+   const [analyzing, setAnalyzing] = useState(false);
+   const [result, setResult] = useState<string | null>(null);
+   const inputRef = useRef<HTMLInputElement>(null);
+   const [dragActive, setDragActive] = useState(false);
+
+   const handleFile = (file: File) => {
+      const r = new FileReader();
+      r.onload = async (ev) => {
+         setImg(ev.target?.result as string);
+         setAnalyzing(true);
+         const res = await analyzeCropDisease(ev.target?.result as string, lang);
+         setResult(res); setAnalyzing(false);
+      }
+      r.readAsDataURL(file);
+   }
+
+   const onDrop = (e: React.DragEvent) => {
+      e.preventDefault(); setDragActive(false);
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+   };
+
+   return (
+      <div className="h-full bg-slate-900 text-white overflow-y-auto custom-scrollbar">
+         <div className="md:hidden"><Header title="" onBack={onBack} /></div>
+         
+         <div className="p-6 md:p-12 max-w-6xl mx-auto min-h-screen flex flex-col">
+            <div className="hidden md:flex justify-between items-center mb-10">
+               <div>
+                  <h1 className="text-4xl font-black">{t.scan_title}</h1>
+                  <p className="text-slate-400 mt-2">{t.scan_desc}</p>
+               </div>
+               <button onClick={onBack} className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"><X/></button>
+            </div>
+
+            <div className="flex-1 flex flex-col lg:flex-row gap-10">
+               {/* Upload Area */}
+               <div className="flex-1">
+                  {!img ? (
+                     <div 
+                        onClick={() => inputRef.current?.click()}
+                        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                        onDragLeave={() => setDragActive(false)}
+                        onDrop={onDrop}
+                        className={`h-[50vh] md:h-[600px] border-4 border-dashed rounded-[3rem] flex flex-col items-center justify-center transition-all cursor-pointer relative overflow-hidden group ${dragActive ? 'border-emerald-500 bg-emerald-900/20' : 'border-slate-700 bg-slate-800/50 hover:bg-slate-800 hover:border-slate-500'}`}
+                     >
+                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 pointer-events-none"></div>
+                        <div className="w-24 h-24 bg-emerald-600 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(16,185,129,0.4)] mb-8 animate-pulse group-hover:scale-110 transition-transform">
+                           <Camera size={40} />
+                        </div>
+                        <h3 className="text-3xl font-black mb-2">{t.take_photo}</h3>
+                        <p className="text-slate-400 font-medium mb-8">{t.upload_text}</p>
+                        <button className="px-8 py-3 bg-white text-slate-900 rounded-full font-bold hover:bg-emerald-50 transition-colors">Select File</button>
+                        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files && handleFile(e.target.files[0])}/>
+                     </div>
+                  ) : (
+                     <div className="relative rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl h-[50vh] md:h-[600px] bg-black">
+                        <img src={img} className="w-full h-full object-contain" />
+                        {analyzing && (
+                           <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center backdrop-blur-sm z-20">
+                              <Loader2 size={64} className="text-emerald-500 animate-spin mb-6" />
+                              <p className="font-bold tracking-widest uppercase text-sm animate-pulse">{t.analyzing}</p>
+                           </div>
+                        )}
+                        <button onClick={() => { setImg(null); setResult(null); }} className="absolute top-6 right-6 bg-black/60 p-3 rounded-full backdrop-blur-md text-white hover:bg-red-600 transition-colors z-30"><X size={24}/></button>
+                     </div>
+                  )}
+               </div>
+
+               {/* Result Area */}
+               {result && (
+                  <div className="lg:w-[400px] bg-slate-800/50 border border-slate-700 p-8 rounded-[2.5rem] animate-enter-right flex flex-col">
+                     <div className="flex items-center gap-4 mb-6 text-emerald-400">
+                        <CheckCircle2 size={32} />
+                        <span className="font-black text-2xl tracking-tight">{t.analysis_report}</span>
+                     </div>
+                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                         <p className="text-slate-300 leading-relaxed font-medium whitespace-pre-wrap text-lg">{result}</p>
+                     </div>
+                     <div className="mt-8 pt-6 border-t border-slate-700">
+                        <Button fullWidth variant="primary" className="mb-3">{t.save_report}</Button>
+                        <Button fullWidth variant="glass">{t.share_expert}</Button>
+                     </div>
+                  </div>
+               )}
+            </div>
+         </div>
+      </div>
+   )
+}
+
+const AgriBlog = ({onBack, lang, onBlogSelect}: any) => {
+   const t = TRANSLATIONS[lang];
+   return (
+      <div className="h-full bg-slate-50 overflow-y-auto custom-scrollbar">
+         <div className="md:hidden"><Header title={t.blog_title} subtitle={t.blog_subtitle} onBack={onBack}/></div>
+         <div className="hidden md:block px-10 pt-10 pb-6">
+             <h1 className="text-4xl font-black text-slate-900">{t.blog_title}</h1>
+             <p className="text-slate-500 mt-2 font-medium">{t.blog_subtitle}</p>
+         </div>
+
+         <div className="p-6 md:px-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {MOCK_BLOGS.map((b,i) => (
+               <div key={b.id} onClick={() => onBlogSelect(b.id)} className="group cursor-pointer bg-white rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 border border-slate-100 flex flex-col">
+                  <div className="h-64 overflow-hidden relative">
+                     <img src={b.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"/>
+                     <div className="absolute top-4 left-4">
+                        <span className="bg-emerald-600 text-white text-[10px] font-black uppercase px-3 py-1.5 rounded-full shadow-lg">{b.category}</span>
+                     </div>
+                  </div>
+                  <div className="p-8 flex-1 flex flex-col">
+                      <div className="flex items-center gap-3 text-xs font-bold text-slate-400 mb-4 uppercase tracking-wider">
+                         <Clock size={14}/> {b.date} • <UserCircle size={14}/> {b.author}
+                      </div>
+                      <h2 className="text-2xl font-black text-slate-900 leading-tight mb-4 group-hover:text-emerald-700 transition-colors">{b.title}</h2>
+                      <p className="text-slate-500 font-medium line-clamp-3 mb-6 flex-1">{b.intro}</p>
+                      <div className="flex items-center text-emerald-600 font-bold text-sm uppercase tracking-wider group-hover:gap-2 transition-all">
+                         {t.read_article} <ArrowUpRight size={16} className="ml-1"/>
+                      </div>
+                  </div>
+               </div>
+            ))}
+         </div>
+      </div>
+   )
+}
+
+const BlogDetailView = ({ blogId, onBack }: { blogId: string, onBack: () => void }) => {
+   const blog = MOCK_BLOGS.find(b => b.id === blogId);
+   if (!blog) return null;
+
+   return (
+      <div className="h-full bg-slate-50 overflow-y-auto custom-scrollbar">
+         <div className="relative h-[40vh] md:h-[50vh]">
+            <img src={blog.image} className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-80"></div>
+            <button onClick={onBack} className="absolute top-6 left-6 w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors">
+               <ArrowLeft size={24} />
+            </button>
+            <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 text-white">
+               <span className="bg-emerald-600 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest mb-4 inline-block">{blog.category}</span>
+               <h1 className="text-3xl md:text-5xl font-black leading-tight mb-4">{blog.title}</h1>
+               <div className="flex items-center gap-4 text-sm font-bold opacity-80">
+                  <span className="flex items-center gap-2"><UserCircle size={16}/> {blog.author}</span>
+                  <span className="flex items-center gap-2"><Clock size={16}/> {blog.date}</span>
+               </div>
+            </div>
+         </div>
+         
+         <div className="max-w-4xl mx-auto p-6 md:p-12 -mt-10 relative z-10 bg-slate-50 rounded-t-[3rem]">
+            <div className="bg-white p-8 md:p-12 rounded-[2rem] shadow-sm border border-slate-100">
+               <p className="text-xl font-medium text-slate-600 leading-relaxed mb-10">{blog.intro}</p>
+               
+               {blog.sections.map((section, idx) => (
+                  <div key={idx} className="mb-10 animate-enter" style={{ animationDelay: `${idx * 100}ms` }}>
+                     <h3 className="text-2xl font-black text-slate-900 mb-4">{section.heading}</h3>
+                     <p className="text-lg text-slate-500 leading-relaxed whitespace-pre-line">{section.content}</p>
+                  </div>
+               ))}
+
+               <div className="mt-12 p-6 bg-emerald-50 rounded-2xl border border-emerald-100">
+                  <h4 className="font-black text-emerald-800 text-lg mb-2">Conclusion</h4>
+                  <p className="text-emerald-700 font-medium">{blog.conclusion}</p>
+               </div>
+            </div>
+         </div>
+      </div>
+   );
+};
+
 const App = () => {
   const [view, setView] = useState<ViewState>('DASHBOARD');
   const [lang, setLang] = useState<Language>('mr');
@@ -843,6 +1133,7 @@ const App = () => {
     landSize: "5 Acres",
     crop: "Soyabean"
   });
+  const [selectedBlogId, setSelectedBlogId] = useState<string | null>(null);
 
   const renderContent = () => {
     switch(view) {
@@ -853,25 +1144,15 @@ const App = () => {
       case 'MARKET':
         return <MarketView lang={lang} onBack={() => setView('DASHBOARD')} />;
       case 'WEATHER':
+        return <WeatherView lang={lang} onBack={() => setView('DASHBOARD')} />;
       case 'DISEASE_DETECTOR':
+        return <DiseaseDetector lang={lang} onBack={() => setView('DASHBOARD')} />;
       case 'SCHEMES':
+        return <SchemesView lang={lang} onBack={() => setView('DASHBOARD')} />;
       case 'BLOG':
-         return (
-             <div className="h-full bg-slate-50 flex flex-col">
-                 <div className="md:hidden"><Header title={TRANSLATIONS[lang][`menu_${view === 'DISEASE_DETECTOR' ? 'crop_doctor' : view === 'BLOG' ? 'knowledge' : view.toLowerCase()}`] || view} onBack={() => setView('DASHBOARD')} /></div>
-                 <div className="flex-1 flex flex-col items-center justify-center p-10 text-center">
-                     <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 mb-6">
-                         {view === 'WEATHER' ? <CloudSun size={40}/> : 
-                          view === 'DISEASE_DETECTOR' ? <ScanLine size={40}/> :
-                          view === 'SCHEMES' ? <Landmark size={40}/> :
-                          <FileText size={40}/>}
-                     </div>
-                     <h2 className="text-2xl font-black text-slate-900 mb-2">Coming Soon</h2>
-                     <p className="text-slate-500 max-w-xs mx-auto">This feature is under development for the demo.</p>
-                     <Button variant="primary" className="mt-8" onClick={() => setView('DASHBOARD')}>Go Back</Button>
-                 </div>
-             </div>
-         )
+        return <AgriBlog lang={lang} onBack={() => setView('DASHBOARD')} onBlogSelect={(id: string) => { setSelectedBlogId(id); setView('BLOG_DETAIL'); }} />;
+      case 'BLOG_DETAIL':
+        return selectedBlogId ? <BlogDetailView blogId={selectedBlogId} onBack={() => setView('BLOG')} /> : <AgriBlog lang={lang} onBack={() => setView('DASHBOARD')} onBlogSelect={(id: string) => { setSelectedBlogId(id); setView('BLOG_DETAIL'); }} />;
       default:
         return <Hub lang={lang} user={user} onNavigate={setView} />;
     }
