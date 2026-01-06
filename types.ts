@@ -1,3 +1,4 @@
+
 export type Language = 'mr' | 'hi' | 'en';
 
 export type ViewState = 
@@ -17,7 +18,8 @@ export type ViewState =
   | 'CALENDAR'
   | 'NEWS'
   | 'AGRI_KNOWLEDGE'
-  | 'BLOG';
+  | 'BLOG'
+  | 'BLOG_DETAIL';
 
 export interface UserProfile {
   name: string;

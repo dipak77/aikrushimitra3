@@ -59,7 +59,21 @@ const MOCK_BLOGS: BlogPost[] = [
     author: 'AI Krushi',
     image: 'https://images.unsplash.com/photo-1615811361269-669f437998bb?q=80&w=800',
     intro: 'शेतीमध्ये ड्रोनचा वापर करून फवारणी कशी सोपी करावी आणि वेळेची बचत कशी करावी याबद्दल सविस्तर माहिती.',
-    sections: [], conclusion: ''
+    sections: [
+        {
+            heading: 'ड्रोन तंत्रज्ञान का वापरावे?',
+            content: 'पारंपारिक फवारणी पद्धतीत जास्त वेळ आणि मजूर लागतात. ड्रोनमुळे हे काम अतिशय वेगाने होते. एका एकराची फवारणी अवघ्या १० ते १५ मिनिटांत पूर्ण होऊ शकते.'
+        },
+        {
+            heading: 'फायदे',
+            content: '१. वेळेची बचत: जलद फवारणी.\n२. पाण्याची बचत: एकरी फक्त १०-१५ लिटर पाणी लागते.\n३. आरोग्याची काळजी: शेतकऱ्याचा औषधाशी थेट संपर्क येत नाही.\n४. समान फवारणी: पिकाच्या पानांवर औषध समान प्रमाणात पडते.'
+        },
+        {
+            heading: 'सबसिडी आणि योजना',
+            content: 'केंद्र सरकारने ड्रोन खरेदीसाठी शेतकऱ्यांना आणि FPO ना ५०% ते ७५% पर्यंत अनुदान जाहीर केले आहे.'
+        }
+    ], 
+    conclusion: 'ड्रोन हे आधुनिक शेतीचे भविष्य आहे. यामुळे खर्च कमी होऊन उत्पन्न वाढण्यास मदत होईल.'
   },
   {
     id: '2',
@@ -69,7 +83,21 @@ const MOCK_BLOGS: BlogPost[] = [
     author: 'Dr. Patil',
     image: 'https://images.unsplash.com/photo-1627920769842-6a6eb1222472?q=80&w=800',
     intro: 'ढगाळ वातावरणामुळे कांद्यावर येणाऱ्या रोगांचे नियोजन आणि व्यवस्थापन.',
-    sections: [], conclusion: ''
+    sections: [
+        {
+            heading: 'रोग ओळखण्याची लक्षणे',
+            content: 'पानांवर सुरुवातीला पिवळसर लांबट चट्टे दिसतात. नंतर ते तपकिरी होऊन पाने वाळतात. यालाच शेतकरी करपा म्हणतात.'
+        },
+        {
+            heading: 'हवामानाचा परिणाम',
+            content: 'सतत ढगाळ वातावरण आणि जास्त आर्द्रता (८०% पेक्षा जास्त) असल्यास या बुरशीचा प्रादुर्भाव वेगाने होतो.'
+        },
+        {
+            heading: 'एकात्मिक उपाय',
+            content: '१. बीजप्रक्रिया: पेरणीपूर्वी बियाण्यास थायरम चोळावे.\n२. फवारणी: मॅन्कोझेब २५ ग्रॅम किंवा टेब्युकोनॅझोल १० मिली प्रति १० लिटर पाण्यात मिसळून फवारणी करावी.\n३. नत्र खताचा अतिरेक टाळावा.'
+        }
+    ],
+    conclusion: 'योग्य वेळी निदान आणि फवारणी केल्यास ३०-४०% नुकसान टाळता येते.'
   },
   {
     id: '3',
@@ -79,7 +107,21 @@ const MOCK_BLOGS: BlogPost[] = [
     author: 'Prof. Deshmukh',
     image: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?q=80&w=800',
     intro: 'रासायनिक खतांचा वापर कमी करून जमिनीचा पोत सुधारण्याचे उपाय.',
-    sections: [], conclusion: ''
+    sections: [
+        {
+            heading: 'सेंद्रिय शेती म्हणजे काय?',
+            content: 'रासायनिक खते आणि कीटकनाशके न वापरता, निसर्गात उपलब्ध असलेल्या साधनांचा वापर करून केलेली शेती.'
+        },
+        {
+            heading: 'जीवामृत तयार करण्याची पद्धत',
+            content: 'साहित्य: १० किलो देशी गाईचे शेण, १० लिटर गोमूत्र, २ किलो गूळ, २ किलो डाळीचे पीठ. हे सर्व २०० लिटर पाण्यात मिसळून ४८ तास सावलीत ठेवावे. हे १ एकरासाठी उत्तम खत आहे.'
+        },
+        {
+            heading: 'फायदे',
+            content: 'जमिनीचा पोत सुधारतो, पिकाची चव वाढते, आणि खर्च कमी होतो. ग्राहकांकडून सेंद्रिय मालाला चांगली मागणी आहे.'
+        }
+    ], 
+    conclusion: 'दीर्घकालीन फायद्यासाठी आणि जमिनीच्या आरोग्यासाठी सेंद्रिय शेती हाच उत्तम पर्याय आहे.'
   }
 ];
 
@@ -112,8 +154,8 @@ const Sidebar = ({ view, setView, lang }: { view: ViewState, setView: (v: ViewSt
   ];
 
   return (
-    <div className="hidden md:flex w-72 bg-white h-screen border-r border-slate-200 flex-col sticky top-0 z-50 shadow-lg">
-       <div className="p-8 pb-4">
+    <div className="hidden md:flex w-72 bg-farm-poly h-screen border-r border-slate-200 flex-col sticky top-0 z-50 shadow-2xl">
+       <div className="p-8 pb-4 relative z-10">
           <div className="flex items-center gap-3 mb-8 cursor-pointer" onClick={() => setView('DASHBOARD')}>
              <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-emerald-200 shadow-xl group-hover:scale-110 transition-transform">
                 <Sprout size={28} />
@@ -125,22 +167,22 @@ const Sidebar = ({ view, setView, lang }: { view: ViewState, setView: (v: ViewSt
           </div>
        </div>
 
-       <div className="flex-1 px-4 space-y-2 overflow-y-auto custom-scrollbar">
+       <div className="flex-1 px-4 space-y-2 overflow-y-auto custom-scrollbar relative z-10">
           {menu.map(item => (
              <button key={item.id} onClick={() => setView(item.id as ViewState)}
-               className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 font-bold text-sm group ${view === item.id ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>
-                <item.icon size={20} className={`transition-colors ${view === item.id ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+               className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 font-bold text-sm group backdrop-blur-sm ${view === item.id ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : 'text-slate-600 hover:bg-white/60 hover:text-emerald-700'}`}>
+                <item.icon size={20} className={`transition-colors ${view === item.id ? 'text-white' : 'text-slate-400 group-hover:text-emerald-600'}`} />
                 {item.label}
              </button>
           ))}
        </div>
 
-       <div className="p-4 border-t border-slate-100">
+       <div className="p-4 border-t border-slate-200/50 bg-white/30 backdrop-blur-md">
           <button onClick={() => setView('VOICE_ASSISTANT')} className="w-full bg-gradient-to-r from-emerald-600 to-teal-500 text-white p-4 rounded-2xl shadow-lg shadow-emerald-200 hover:shadow-emerald-300 transition-all active:scale-[0.98] flex items-center justify-center gap-3 group">
              <Mic className="animate-pulse" size={20} />
              <span className="font-bold">{t.menu_voice}</span>
           </button>
-          <button onClick={() => setView('LANGUAGE')} className="w-full mt-2 text-slate-400 hover:text-emerald-600 p-2 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2">
+          <button onClick={() => setView('LANGUAGE')} className="w-full mt-2 text-slate-500 hover:text-emerald-600 p-2 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2">
              <Settings size={14}/> Change Language
           </button>
        </div>
@@ -722,7 +764,7 @@ const DiseaseDetector = ({ lang, onBack }: any) => {
    )
 }
 
-const AgriBlog = ({onBack, lang}: any) => {
+const AgriBlog = ({onBack, lang, onBlogSelect}: any) => {
    const t = TRANSLATIONS[lang];
    return (
       <div className="h-full bg-slate-50 overflow-y-auto custom-scrollbar">
@@ -734,7 +776,7 @@ const AgriBlog = ({onBack, lang}: any) => {
 
          <div className="p-6 md:px-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {MOCK_BLOGS.map((b,i) => (
-               <div key={b.id} className="group cursor-pointer bg-white rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 border border-slate-100 flex flex-col">
+               <div key={b.id} onClick={() => onBlogSelect(b.id)} className="group cursor-pointer bg-white rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 border border-slate-100 flex flex-col">
                   <div className="h-64 overflow-hidden relative">
                      <img src={b.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"/>
                      <div className="absolute top-4 left-4">
@@ -758,11 +800,55 @@ const AgriBlog = ({onBack, lang}: any) => {
    )
 }
 
+const BlogDetailView = ({ blogId, onBack }: { blogId: string, onBack: () => void }) => {
+   const blog = MOCK_BLOGS.find(b => b.id === blogId);
+   if (!blog) return null;
+
+   return (
+      <div className="h-full bg-slate-50 overflow-y-auto custom-scrollbar">
+         <div className="relative h-[40vh] md:h-[50vh]">
+            <img src={blog.image} className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-80"></div>
+            <button onClick={onBack} className="absolute top-6 left-6 w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors">
+               <ArrowLeft size={24} />
+            </button>
+            <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 text-white">
+               <span className="bg-emerald-600 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest mb-4 inline-block">{blog.category}</span>
+               <h1 className="text-3xl md:text-5xl font-black leading-tight mb-4">{blog.title}</h1>
+               <div className="flex items-center gap-4 text-sm font-bold opacity-80">
+                  <span className="flex items-center gap-2"><UserCircle size={16}/> {blog.author}</span>
+                  <span className="flex items-center gap-2"><Clock size={16}/> {blog.date}</span>
+               </div>
+            </div>
+         </div>
+         
+         <div className="max-w-4xl mx-auto p-6 md:p-12 -mt-10 relative z-10 bg-slate-50 rounded-t-[3rem]">
+            <div className="bg-white p-8 md:p-12 rounded-[2rem] shadow-sm border border-slate-100">
+               <p className="text-xl font-medium text-slate-600 leading-relaxed mb-10">{blog.intro}</p>
+               
+               {blog.sections.map((section, idx) => (
+                  <div key={idx} className="mb-10 animate-enter" style={{ animationDelay: `${idx * 100}ms` }}>
+                     <h3 className="text-2xl font-black text-slate-900 mb-4">{section.heading}</h3>
+                     <p className="text-lg text-slate-500 leading-relaxed whitespace-pre-line">{section.content}</p>
+                  </div>
+               ))}
+
+               <div className="mt-12 p-6 bg-emerald-50 rounded-2xl border border-emerald-100">
+                  <h4 className="font-black text-emerald-800 text-lg mb-2">Conclusion</h4>
+                  <p className="text-emerald-700 font-medium">{blog.conclusion}</p>
+               </div>
+            </div>
+         </div>
+      </div>
+   );
+};
+
 // --- MAIN APP LAYOUT ---
 export default function App() {
   const [view, setView] = useState<ViewState>('SPLASH');
   const [lang, setLang] = useState<Language>('mr');
   const [user] = useState<UserProfile>({ name: 'Sanjay Pawar', village: 'Baramati', district: 'Pune', landSize: '5', crop: 'Soyabean' });
+  const [selectedBlogId, setSelectedBlogId] = useState<string | null>(null);
 
   // Render view content
   const renderContent = () => {
@@ -772,7 +858,8 @@ export default function App() {
       case 'VOICE_ASSISTANT': return <VoiceAssistant lang={lang} user={user} onBack={() => setView('DASHBOARD')} />;
       case 'WEATHER': return <WeatherView lang={lang} onBack={() => setView('DASHBOARD')} />;
       case 'DISEASE_DETECTOR': return <DiseaseDetector lang={lang} onBack={() => setView('DASHBOARD')} />;
-      case 'BLOG': return <AgriBlog lang={lang} onBack={() => setView('DASHBOARD')} />;
+      case 'BLOG': return <AgriBlog lang={lang} onBack={() => setView('DASHBOARD')} onBlogSelect={(id: string) => { setSelectedBlogId(id); setView('BLOG_DETAIL'); }} />;
+      case 'BLOG_DETAIL': return selectedBlogId ? <BlogDetailView blogId={selectedBlogId} onBack={() => setView('BLOG')} /> : <AgriBlog lang={lang} onBack={() => setView('DASHBOARD')} onBlogSelect={(id: string) => { setSelectedBlogId(id); setView('BLOG_DETAIL'); }} />;
       case 'SCHEMES': return <SchemesView lang={lang} onBack={() => setView('DASHBOARD')} />;
       default: return <Hub lang={lang} user={user} onNavigate={setView} />;
     }
