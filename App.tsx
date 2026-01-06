@@ -1,17 +1,15 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ViewState, Language, UserProfile, ChatMessage, BlogPost, BlogSection, FAQ } from './types';
+import { ViewState, Language, UserProfile, ChatMessage, BlogPost } from './types';
 import { TRANSLATIONS } from './constants';
 import { 
   Sprout, CloudSun, ScanLine, Mic, Droplets, ArrowLeft, User, Home, Store, 
   Wind, Camera, X, Send, Wheat, Sun, MapPin, Calendar, ArrowUpRight, 
-  Landmark, CalendarClock, Newspaper, Radio, BookOpen, Info, Bookmark, 
-  Share2, MessageSquare, TrendingUp, AlertTriangle, ChevronRight, 
-  CheckCircle2, Activity, Zap, Leaf, Loader2, Gauge, Thermometer, Droplet,
-  Volume2, VolumeX, UserCircle, Clock, Facebook, Twitter, MessageCircle,
-  Search, Menu, MoreVertical, AudioLines, MicOff, Waves, Download, Play, Pause, Save, History, RefreshCw,
-  Settings, HelpCircle, Info as InfoIcon, Timer, Sparkles, Mic2, Bell, ShieldCheck, 
-  CloudRain, Zap as Lightning, Sunrise, Sunset, Globe, Lightbulb
+  Landmark, Newspaper, Radio, Share2, TrendingUp, ChevronRight, 
+  CheckCircle2, Zap, Loader2, Volume2, UserCircle, Clock, 
+  MicOff, RefreshCw, Mic2, Bell, ShieldCheck, 
+  CloudRain, Zap as Lightning, Globe, Lightbulb, Play, Pause, ThermometerSun,
+  Menu, LogOut, Settings, LayoutDashboard, FileText, Activity, Info
 } from 'lucide-react';
 import { Button } from './components/Button';
 import { getAIFarmingAdvice, analyzeCropDisease } from './services/geminiService';
@@ -22,36 +20,24 @@ function decode(base64: string) {
   const binaryString = atob(base64);
   const len = binaryString.length;
   const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
+  for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
   return bytes;
 }
 
 function encode(bytes: Uint8Array) {
   let binary = '';
   const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
+  for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i]);
   return btoa(binary);
 }
 
-async function decodeAudioData(
-  data: Uint8Array,
-  ctx: AudioContext,
-  sampleRate: number,
-  numChannels: number,
-): Promise<AudioBuffer> {
+async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
   const dataInt16 = new Int16Array(data.buffer);
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-
   for (let channel = 0; channel < numChannels; channel++) {
     const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
-      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-    }
+    for (let i = 0; i < frameCount; i++) channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
   }
   return buffer;
 }
@@ -59,316 +45,415 @@ async function decodeAudioData(
 function createPCMChunk(data: Float32Array): GenAIBlob {
   const l = data.length;
   const int16 = new Int16Array(l);
-  for (let i = 0; i < l; i++) {
-    int16[i] = data[i] * 32768;
-  }
-  return {
-    data: encode(new Uint8Array(int16.buffer)),
-    mimeType: 'audio/pcm;rate=16000',
-  };
+  for (let i = 0; i < l; i++) int16[i] = data[i] * 32768;
+  return { data: encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' };
 }
 
-const getLangCode = (lang: Language) => {
-  switch (lang) {
-    case 'mr': return 'mr-IN';
-    case 'hi': return 'hi-IN';
-    case 'en': return 'en-US';
-    default: return 'en-US';
-  }
-};
-
-const speak = (text: string, lang: Language, onEnd?: () => void) => {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = getLangCode(lang);
-  utterance.rate = 0.9;
-  utterance.pitch = 1.0; 
-  if (onEnd) utterance.onend = onEnd;
-  window.speechSynthesis.speak(utterance);
-};
-
-// --- MOCK CONTENT ---
+// --- MOCK DATA ---
+// Note: Content data remains static for demo, but headers will be localized.
 const MOCK_BLOGS: BlogPost[] = [
   {
-    id: 'smart-farming-2025',
-    title: 'Smart Farming Tools 2025: आधुनिक तंत्रज्ञानाचा वापर',
-    category: 'तंत्रज्ञान',
-    date: 'April 27, 2025',
-    author: 'AI Krushi Mitra',
-    image: 'https://images.unsplash.com/photo-1594398901394-4e34939a4fd0?q=80&w=1200',
-    intro: 'भारतीय शेतीला सुधारण्याच्या दिशेने विविध तंत्रज्ञानांचा वापर होऊ लागला आहे. या लेखामध्ये आपण पाहणार आहोत की कशी आधुनिक यंत्रे शेतकऱ्यांचे काम सोपे करत आहेत.',
-    sections: [
-      {
-        heading: 'ड्रोन: शेतीचा नवा डोळा',
-        content: 'ड्रोन तंत्रज्ञानामुळे फवारणी आणि पिकांच्या आरोग्याची देखरेख करणे कमालीचे सोपे झाले आहे.',
-        image: 'https://images.unsplash.com/photo-1508614589041-895b88991e3e?q=80&w=1200'
-      }
-    ],
-    conclusion: 'भविष्य हे स्मार्ट शेतीचेच आहे.'
+    id: '1',
+    title: 'Smart Farming 2025: ड्रोन तंत्रज्ञानाचा वापर',
+    category: 'Technology',
+    date: 'Today',
+    author: 'AI Krushi',
+    image: 'https://images.unsplash.com/photo-1615811361269-669f437998bb?q=80&w=800',
+    intro: 'शेतीमध्ये ड्रोनचा वापर करून फवारणी कशी सोपी करावी आणि वेळेची बचत कशी करावी याबद्दल सविस्तर माहिती.',
+    sections: [], conclusion: ''
+  },
+  {
+    id: '2',
+    title: 'कांदा पिकावरील करपा रोगाचे नियंत्रण',
+    category: 'Disease',
+    date: 'Yesterday',
+    author: 'Dr. Patil',
+    image: 'https://images.unsplash.com/photo-1627920769842-6a6eb1222472?q=80&w=800',
+    intro: 'ढगाळ वातावरणामुळे कांद्यावर येणाऱ्या रोगांचे नियोजन आणि व्यवस्थापन.',
+    sections: [], conclusion: ''
+  },
+  {
+    id: '3',
+    title: 'सेंद्रिय शेती: काळाची गरज',
+    category: 'Organic',
+    date: '2 Days Ago',
+    author: 'Prof. Deshmukh',
+    image: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?q=80&w=800',
+    intro: 'रासायनिक खतांचा वापर कमी करून जमिनीचा पोत सुधारण्याचे उपाय.',
+    sections: [], conclusion: ''
   }
 ];
 
-const MOCK_MARKET_DATA = [
-  { name: 'Soyabean', price: 4850, trend: '+120', arrival: '1200 Qt', color: 'text-emerald-500' },
-  { name: 'Cotton (Kapas)', price: 7200, trend: '-50', arrival: '850 Qt', color: 'text-rose-500' },
-  { name: 'Tur (Pigeon Pea)', price: 10400, trend: '+300', arrival: '400 Qt', color: 'text-emerald-500' },
-  { name: 'Wheat', price: 2450, trend: '+10', arrival: '2200 Qt', color: 'text-emerald-500' },
-  { name: 'Onion', price: 1800, trend: '-200', arrival: '5000 Qt', color: 'text-rose-500' }
+const MOCK_MARKET = [
+  { name: 'Soyabean', price: 4850, trend: '+120', arrival: 'High', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: Wheat },
+  { name: 'Cotton', price: 7200, trend: '-50', arrival: 'Med', color: 'text-rose-500', bg: 'bg-rose-50', icon: CloudSun },
+  { name: 'Onion', price: 1800, trend: '-200', arrival: 'High', color: 'text-rose-500', bg: 'bg-rose-50', icon: Sprout },
+  { name: 'Wheat', price: 2450, trend: '+15', arrival: 'Low', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: Wheat },
 ];
 
 const MOCK_SCHEMES = [
-  { id: 1, title: 'PM-Kisan Samman Nidhi', benefit: '₹6,000 yearly', deadline: 'Open', image: 'https://images.unsplash.com/photo-1590682680393-024294026367?q=80&w=600' },
-  { id: 2, title: 'Pradhan Mantri Fasal Bima', benefit: 'Crop Insurance', deadline: '31 Aug 2025', image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=600' },
-  { id: 3, title: 'Drip Irrigation Subsidy', benefit: '80% Subsidy', deadline: 'Ongoing', image: 'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?q=80&w=600' }
+  { id: 1, title: 'PM-Kisan Samman Nidhi', sub: '₹6000/Year', benefit: '₹2000 per installment', color: 'bg-blue-50 text-blue-700 border-blue-100', status: 'OPEN', deadline: 'Ongoing' },
+  { id: 2, title: 'Pradhan Mantri Fasal Bima', sub: 'Crop Insurance', benefit: 'Full Coverage', color: 'bg-emerald-50 text-emerald-700 border-emerald-100', status: 'OPEN', deadline: '31 Aug' },
+  { id: 3, title: 'Kusum Solar Pump', sub: '90% Subsidy', benefit: 'Solar Pump Set', color: 'bg-amber-50 text-amber-700 border-amber-100', status: 'OPEN', deadline: 'Limited' },
+  { id: 4, title: 'Drip Irrigation Subsidy', sub: 'Subsidized', benefit: 'upto 80% Off', color: 'bg-cyan-50 text-cyan-700 border-cyan-100', status: 'CLOSED', deadline: 'Expired' }
 ];
 
-// --- UI COMPONENTS ---
+// --- COMPONENTS ---
 
-const Header = ({ onBack, title, rightAction }: { onBack?: () => void, title?: string, rightAction?: React.ReactNode }) => (
-  <header className="sticky top-0 z-[60] glass-card px-6 py-4 flex items-center justify-between border-b border-slate-200/50">
-    <div className="flex items-center gap-4">
-      {onBack && (
-        <button onClick={onBack} className="p-2.5 bg-slate-100/80 rounded-2xl hover:bg-emerald-50 hover:text-emerald-600 transition-all active:scale-90">
-          <ArrowLeft size={20}/>
-        </button>
-      )}
-      <span className="text-xl font-black italic tracking-tighter">
-        <span className="text-emerald-600">AI Krushi</span>
-        <span className="text-slate-900"> Mitra</span>
-      </span>
-    </div>
-    <div className="flex items-center gap-3">
-      {rightAction}
-    </div>
-  </header>
-);
-
-const MarketView = ({ lang, onBack }: any) => {
+// Desktop Sidebar
+const Sidebar = ({ view, setView, lang }: { view: ViewState, setView: (v: ViewState) => void, lang: Language }) => {
   const t = TRANSLATIONS[lang];
+  const menu = [
+    { id: 'DASHBOARD', icon: LayoutDashboard, label: t.menu_dashboard },
+    { id: 'MARKET', icon: Store, label: t.menu_market },
+    { id: 'WEATHER', icon: CloudSun, label: t.menu_weather },
+    { id: 'DISEASE_DETECTOR', icon: ScanLine, label: t.menu_crop_doctor },
+    { id: 'BLOG', icon: FileText, label: t.menu_knowledge },
+    { id: 'SCHEMES', icon: Landmark, label: t.menu_schemes },
+  ];
+
   return (
-    <div className="h-full bg-slate-50 overflow-y-auto pb-32 animate-slide-up">
-       <Header onBack={onBack} />
-       <div className="p-6 max-w-4xl mx-auto space-y-8">
-          <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600 to-emerald-800 text-white p-10 rounded-[3rem] shadow-2xl">
-             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
-             <div className="relative z-10">
-                <h2 className="text-4xl font-black mb-2 tracking-tighter">{t.market_rate}</h2>
-                <div className="flex items-center gap-2 font-bold opacity-80 bg-white/10 w-fit px-4 py-1.5 rounded-full backdrop-blur-sm">
-                   <Calendar size={16}/> {t.today}: 27 April, 2025
-                </div>
-             </div>
-          </div>
-
-          <div className="grid gap-5">
-             {MOCK_MARKET_DATA.map((item, idx) => (
-               <div key={idx} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between group hover:border-emerald-500 hover:shadow-xl hover:shadow-emerald-500/5 transition-all duration-300">
-                  <div className="flex items-center gap-5">
-                     <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-500 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
-                        <Wheat size={28}/>
-                     </div>
-                     <div>
-                        <h4 className="text-xl font-black text-slate-800 tracking-tight">{item.name}</h4>
-                        <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-[0.2em] mt-1">{t.arrival}: {item.arrival}</p>
-                     </div>
-                  </div>
-                  <div className="text-right">
-                     <div className="text-2xl font-black text-slate-900 tracking-tight">₹{item.price.toLocaleString()}</div>
-                     <div className={`text-sm font-bold flex items-center justify-end gap-1 mt-1 ${item.color}`}>
-                        {item.trend.startsWith('+') ? <TrendingUp size={16}/> : <TrendingUp size={16} className="rotate-180"/>}
-                        {item.trend}
-                     </div>
-                  </div>
-               </div>
-             ))}
-          </div>
-       </div>
-    </div>
-  );
-};
-
-const WeatherView = ({ lang, onBack }: any) => {
-  const t = TRANSLATIONS[lang];
-  return (
-    <div className="h-full bg-slate-50 overflow-y-auto pb-32 animate-slide-up">
-       <Header onBack={onBack} />
-       <div className="p-6 max-w-4xl mx-auto space-y-8">
-          <div className="bg-gradient-to-br from-sky-400 to-indigo-600 p-12 rounded-[3.5rem] text-white shadow-2xl relative overflow-hidden group">
-             <div className="absolute top-0 right-0 w-80 h-80 bg-white/20 rounded-full -mr-20 -mt-20 blur-[80px] group-hover:scale-110 transition-transform duration-1000"></div>
-             <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
-                <div>
-                   <div className="flex items-center gap-2 text-sm font-black opacity-80 uppercase tracking-[0.2em] mb-4">
-                      <MapPin size={16}/> Baramati, Maharashtra
-                   </div>
-                   <div className="flex items-center gap-6">
-                      <h2 className="text-9xl font-black tracking-tighter">28°</h2>
-                      <div className="space-y-1">
-                         <div className="text-3xl font-black">Sunny</div>
-                         <div className="text-lg opacity-80 font-bold">निरभ्र आकाश</div>
-                      </div>
-                   </div>
-                </div>
-                <div className="flex flex-wrap gap-4">
-                   <div className="glass-card bg-white/10 p-5 rounded-3xl flex flex-col items-center gap-2">
-                      <Droplets className="text-sky-200"/>
-                      <span className="font-black text-xl">45%</span>
-                      <span className="text-[10px] font-bold uppercase opacity-60">Humidity</span>
-                   </div>
-                   <div className="glass-card bg-white/10 p-5 rounded-3xl flex flex-col items-center gap-2">
-                      <Wind className="text-indigo-200"/>
-                      <span className="font-black text-xl">12kph</span>
-                      <span className="text-[10px] font-bold uppercase opacity-60">Wind</span>
-                   </div>
-                </div>
-             </div>
-          </div>
-
-          <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 flex items-center gap-8 group">
-             <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 shrink-0 group-hover:scale-110 transition-transform shadow-lg shadow-emerald-500/5">
-                <ShieldCheck size={40}/>
+    <div className="hidden md:flex w-72 bg-white h-screen border-r border-slate-200 flex-col sticky top-0 z-50 shadow-lg">
+       <div className="p-8 pb-4">
+          <div className="flex items-center gap-3 mb-8 cursor-pointer" onClick={() => setView('DASHBOARD')}>
+             <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-emerald-200 shadow-xl group-hover:scale-110 transition-transform">
+                <Sprout size={28} />
              </div>
              <div>
-                <h3 className="text-2xl font-black text-slate-800 mb-2">{t.spray_advice}</h3>
-                <p className="text-lg text-slate-500 font-medium leading-relaxed">
-                   {lang === 'mr' ? 'आरं पाटील, आज फवारणीसाठी लय भारी हवा आहे. वारा कमी आहे आणि पाऊस पण नाहीये. नक्की फायदा होईल!' : t.safe_to_spray}
-                </p>
+                <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">AI Krushi</h1>
+                <span className="text-emerald-600 font-bold text-xs uppercase tracking-widest">Mitra Pro</span>
              </div>
           </div>
+       </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             {[
-               { day: 'Mon', temp: '29°', icon: Sun, label: 'Sunny' },
-               { day: 'Tue', temp: '27°', icon: CloudSun, label: 'Cloudy' },
-               { day: 'Wed', temp: '25°', icon: CloudRain, label: 'Rain' },
-               { day: 'Thu', temp: '28°', icon: Lightning, label: 'Storm' },
-             ].map((day, i) => (
-               <div key={i} className="bg-white p-6 rounded-3xl text-center border border-slate-100 hover:border-emerald-300 transition-all hover:shadow-lg">
-                  <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest mb-4">{day.day}</p>
-                  <day.icon className="mx-auto text-sky-500 mb-4" size={32}/>
-                  <p className="text-2xl font-black text-slate-800">{day.temp}</p>
-                  <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">{day.label}</p>
-               </div>
-             ))}
-          </div>
+       <div className="flex-1 px-4 space-y-2 overflow-y-auto custom-scrollbar">
+          {menu.map(item => (
+             <button key={item.id} onClick={() => setView(item.id as ViewState)}
+               className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 font-bold text-sm group ${view === item.id ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>
+                <item.icon size={20} className={`transition-colors ${view === item.id ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                {item.label}
+             </button>
+          ))}
+       </div>
+
+       <div className="p-4 border-t border-slate-100">
+          <button onClick={() => setView('VOICE_ASSISTANT')} className="w-full bg-gradient-to-r from-emerald-600 to-teal-500 text-white p-4 rounded-2xl shadow-lg shadow-emerald-200 hover:shadow-emerald-300 transition-all active:scale-[0.98] flex items-center justify-center gap-3 group">
+             <Mic className="animate-pulse" size={20} />
+             <span className="font-bold">{t.menu_voice}</span>
+          </button>
+          <button onClick={() => setView('LANGUAGE')} className="w-full mt-2 text-slate-400 hover:text-emerald-600 p-2 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2">
+             <Settings size={14}/> Change Language
+          </button>
        </div>
     </div>
   );
 };
 
-// --- SCHEMES VIEW ---
-const SchemesView = ({ lang, onBack }: { lang: Language, onBack: () => void }) => {
+// Mobile Bottom Nav
+const MobileNav = ({ active, setView, lang }: { active: ViewState, setView: (v: ViewState) => void, lang: Language }) => {
+  const t = TRANSLATIONS[lang];
+  const navItems = [
+    { id: 'DASHBOARD', icon: Home, label: t.menu_dashboard },
+    { id: 'MARKET', icon: Store, label: t.menu_market },
+    { id: 'VOICE_ASSISTANT', icon: Mic, label: t.menu_voice, main: true },
+    { id: 'DISEASE_DETECTOR', icon: ScanLine, label: t.menu_crop_doctor },
+    { id: 'WEATHER', icon: CloudSun, label: t.menu_weather },
+  ];
+
+  return (
+    <div className="md:hidden fixed bottom-6 left-4 right-4 z-50 animate-enter">
+      <div className="glass-dark rounded-[2.5rem] px-2 py-2 flex justify-between items-center shadow-2xl shadow-slate-900/20 relative backdrop-blur-xl border border-white/10">
+        {navItems.map((item) => {
+          const isActive = active === item.id;
+          if (item.main) {
+            return (
+              <button key={item.id} onClick={() => setView(item.id as ViewState)} 
+                className="relative -top-8 bg-gradient-to-br from-emerald-500 to-teal-400 text-white w-16 h-16 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/40 border-[6px] border-slate-50 active:scale-90 transition-transform">
+                <Mic size={28} />
+              </button>
+            );
+          }
+          return (
+            <button key={item.id} onClick={() => setView(item.id as ViewState)} 
+              className={`p-4 rounded-full transition-all duration-300 active:scale-75 ${isActive ? 'text-emerald-400 bg-white/10' : 'text-slate-400 hover:text-white'}`}>
+              <item.icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// Header
+const Header = ({ title, subtitle, onBack }: { title: string, subtitle?: string, onBack?: () => void }) => (
+  <div className="pt-6 pb-4 px-6 md:px-10 flex items-center gap-4 sticky top-0 z-40 bg-slate-50/80 backdrop-blur-md border-b border-slate-100 md:hidden">
+    {onBack && (
+      <button onClick={onBack} className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-700 active:scale-90 transition-transform shadow-sm">
+        <ArrowLeft size={20} />
+      </button>
+    )}
+    <div className="flex-1">
+      <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">{title}</h1>
+      {subtitle && <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mt-1">{subtitle}</p>}
+    </div>
+    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold border border-emerald-200">
+      AI
+    </div>
+  </div>
+);
+
+// --- VIEWS ---
+
+const Hub = ({ lang, user, onNavigate }: any) => {
   const t = TRANSLATIONS[lang];
   return (
-    <div className="h-full bg-slate-50 overflow-y-auto pb-32 animate-slide-up">
-       <Header onBack={onBack} />
-       <div className="p-6 max-w-4xl mx-auto space-y-8">
-          <div className="bg-slate-900 text-white p-12 rounded-[3.5rem] shadow-2xl relative overflow-hidden group">
-             <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full -mr-20 -mt-20 blur-[80px]"></div>
-             <div className="relative z-10">
-                <h2 className="text-4xl font-black mb-2 tracking-tighter">{t.schemes}</h2>
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Government Benefits for Farmers</p>
+    <div className="h-full overflow-y-auto custom-scrollbar bg-slate-50">
+      {/* Desktop Welcome Header */}
+      <div className="px-6 md:px-10 pt-10 pb-6">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 animate-enter">
+          <div>
+             <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-widest mb-3">
+               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+               {t.live_system}
+             </div>
+             <h1 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight tracking-tight">
+               {t.welcome_title} <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">{user.name.split(' ')[0]}!</span>
+             </h1>
+             <p className="text-slate-500 font-medium mt-2 max-w-lg">{t.welcome_subtitle}</p>
+          </div>
+          <div className="flex items-center gap-3">
+             <div className="hidden md:flex flex-col items-end mr-2">
+                <span className="font-bold text-slate-900">{user.village}</span>
+                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">32°C {t.menu_weather}</span>
+             </div>
+             <div onClick={() => onNavigate('PROFILE')} className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white border-2 border-slate-100 shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-all">
+                <div className="w-full h-full bg-slate-900 flex items-center justify-center text-white font-bold">SP</div>
              </div>
           </div>
+        </div>
 
-          <div className="grid gap-6">
-             {MOCK_SCHEMES.map((scheme) => (
-               <div key={scheme.id} className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-slate-100 group hover:border-emerald-500 hover:shadow-xl transition-all duration-500">
-                  <div className="flex flex-col md:flex-row">
-                     <div className="md:w-64 h-48 overflow-hidden">
-                        <img src={scheme.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={scheme.title} />
-                     </div>
-                     <div className="p-8 flex-1 flex flex-col justify-between">
-                        <div>
-                           <div className="flex justify-between items-start mb-4">
-                              <h3 className="text-2xl font-black text-slate-900 leading-tight">{scheme.title}</h3>
-                              <span className="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest">{scheme.deadline}</span>
-                           </div>
-                           <p className="text-slate-500 font-bold flex items-center gap-2 mb-6">
-                              <Zap className="text-amber-500" size={18}/> {scheme.benefit}
-                           </p>
-                        </div>
-                        <Button variant="outline" size="sm" className="w-fit">{t.apply}</Button>
+        {/* Alert Pill */}
+        <div className="mt-8 flex items-center gap-4 bg-amber-50 border border-amber-100 p-4 rounded-2xl animate-enter delay-100 shadow-sm max-w-3xl">
+          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+             <Bell size={20} className="text-amber-600 animate-swing" />
+          </div>
+          <div className="flex-1">
+             <p className="text-sm font-bold text-amber-900">{t.weather_alert_title}</p>
+             <p className="text-xs text-amber-700 font-medium mt-0.5">{t.weather_alert_msg}</p>
+          </div>
+          <ChevronRight size={20} className="text-amber-400" />
+        </div>
+      </div>
+
+      {/* Responsive Bento Grid */}
+      <div className="px-6 md:px-10 pb-32 md:pb-10 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        
+        {/* Weather Card - Large */}
+        <div onClick={() => onNavigate('WEATHER')} className="col-span-1 md:col-span-2 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] p-8 text-white shadow-xl shadow-blue-200 relative overflow-hidden group cursor-pointer transition-transform hover:scale-[1.01] animate-enter delay-100 h-64 flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-white/20 transition-all duration-700"></div>
+          <div className="relative z-10 flex justify-between items-start">
+             <div className="bg-white/20 backdrop-blur-md border border-white/20 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                <MapPin size={12}/> {user.village}
+             </div>
+             <Sun size={48} className="text-yellow-300 animate-spin-slow" />
+          </div>
+          <div className="relative z-10">
+             <div className="text-7xl font-black tracking-tighter">28°</div>
+             <div className="text-lg font-medium opacity-90 flex items-center gap-3">
+                <span>Sunny Day</span>
+                <span className="w-1 h-1 rounded-full bg-white/50"></span>
+                <span>H: 31° L: 24°</span>
+             </div>
+          </div>
+        </div>
+
+        {/* Quick Action: Disease Detect */}
+        <div onClick={() => onNavigate('DISEASE_DETECTOR')} className="bg-white rounded-[2.5rem] p-6 shadow-lg shadow-slate-100 border border-slate-100 cursor-pointer hover:border-emerald-200 transition-all hover:-translate-y-1 group animate-enter delay-200 flex flex-col justify-between h-64">
+          <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all duration-500 shadow-inner">
+            <ScanLine size={32} />
+          </div>
+          <div>
+            <h3 className="font-black text-slate-800 text-2xl leading-tight mb-2">{t.quick_action_doctor}</h3>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{t.quick_action_doctor_desc}</p>
+          </div>
+          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+             <div className="w-3/4 h-full bg-emerald-500 rounded-full"></div>
+          </div>
+        </div>
+
+        {/* Quick Action: Market */}
+        <div onClick={() => onNavigate('MARKET')} className="bg-white rounded-[2.5rem] p-6 shadow-lg shadow-slate-100 border border-slate-100 cursor-pointer hover:border-orange-200 transition-all hover:-translate-y-1 group animate-enter delay-200 flex flex-col justify-between h-64">
+          <div className="w-16 h-16 rounded-3xl bg-orange-50 text-orange-600 flex items-center justify-center group-hover:bg-orange-500 group-hover:text-white transition-all duration-500 shadow-inner">
+            <TrendingUp size={32} />
+          </div>
+          <div>
+            <h3 className="font-black text-slate-800 text-2xl leading-tight mb-2">{t.quick_action_market}</h3>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{t.quick_action_market_desc}</p>
+          </div>
+          <div className="flex -space-x-2">
+             <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-white"></div>
+             <div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-white"></div>
+             <div className="w-8 h-8 rounded-full bg-orange-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-orange-600">+3</div>
+          </div>
+        </div>
+
+        {/* Schemes Row */}
+        <div className="col-span-1 md:col-span-3 lg:col-span-4 mt-4 animate-enter delay-300">
+           <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-black text-slate-900">{t.govt_schemes}</h3>
+           </div>
+           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+               {MOCK_SCHEMES.map(s => (
+                 <div key={s.id} onClick={() => onNavigate('SCHEMES')} className={`p-5 rounded-3xl border ${s.color} cursor-pointer hover:shadow-md transition-all active:scale-95`}>
+                    <Landmark size={24} className="mb-4 opacity-80" />
+                    <h4 className="font-black text-base leading-tight">{s.title}</h4>
+                    <p className="text-xs font-bold opacity-70 mt-1 uppercase tracking-wider">{s.sub}</p>
+                 </div>
+               ))}
+           </div>
+        </div>
+
+        {/* Blog Feed */}
+        <div className="col-span-1 md:col-span-3 lg:col-span-4 mt-4 animate-enter delay-300">
+           <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-black text-slate-900">{t.latest_news}</h3>
+              <button onClick={() => onNavigate('BLOG')} className="text-xs font-bold text-emerald-600 bg-emerald-50 px-4 py-2 rounded-full hover:bg-emerald-100 transition-colors">{t.view_all}</button>
+           </div>
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+             {MOCK_BLOGS.map(blog => (
+               <div key={blog.id} onClick={() => onNavigate('BLOG')} className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 hover:border-emerald-200 hover:shadow-lg transition-all cursor-pointer group flex flex-row gap-4 h-full">
+                  <div className="w-24 h-24 md:w-32 md:h-32 rounded-2xl overflow-hidden shrink-0">
+                     <img src={blog.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={blog.title} />
+                  </div>
+                  <div className="flex flex-col justify-center">
+                     <span className="text-[10px] font-black uppercase text-emerald-600 tracking-wider bg-emerald-50 px-2 py-0.5 rounded-md w-fit mb-2">{blog.category}</span>
+                     <h4 className="font-bold text-slate-900 leading-tight line-clamp-2 text-lg mb-2 group-hover:text-emerald-700 transition-colors">{blog.title}</h4>
+                     <div className="flex items-center gap-2 text-xs text-slate-400 font-bold">
+                        <Clock size={12}/> {blog.date}
                      </div>
                   </div>
                </div>
              ))}
-          </div>
-       </div>
+           </div>
+        </div>
+      </div>
     </div>
   );
 };
 
-// --- AGRI BLOG ---
-const AgriBlog = ({ lang, onBack }: { lang: Language, onBack: () => void }) => {
-  const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
+const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProfile, onBack: () => void }) => {
+  const t = TRANSLATIONS[lang];
+  const [active, setActive] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  
+  // Audio state
+  const sessionRef = useRef<any>(null);
+  const audioContextInRef = useRef<AudioContext | null>(null);
+  const audioContextOutRef = useRef<AudioContext | null>(null);
+
+  useEffect(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
+
+  const toggleSession = async () => {
+    if (active) {
+       sessionRef.current?.close();
+       setActive(false);
+       audioContextInRef.current?.close();
+       audioContextOutRef.current?.close();
+    } else {
+       try {
+         const stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, echoCancellation: true } });
+         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+         const ctxIn = new AudioContextClass({ sampleRate: 16000 });
+         const ctxOut = new AudioContextClass({ sampleRate: 24000 });
+         await ctxIn.resume(); await ctxOut.resume();
+         audioContextInRef.current = ctxIn; audioContextOutRef.current = ctxOut;
+         
+         const source = ctxIn.createMediaStreamSource(stream);
+         const processor = ctxIn.createScriptProcessor(4096, 1, 1);
+         source.connect(processor); processor.connect(ctxIn.destination);
+
+         const session = await ai.live.connect({
+            model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+            config: { 
+                responseModalities: [Modality.AUDIO], 
+                speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } },
+                systemInstruction: lang === 'mr' 
+                    ? `तुम्ही 'AI कृषी मित्र' आहात. मराठीत बोला. ${user.crop} आणि हवामानाबद्दल चर्चा करा.` 
+                    : `You are AI Krushi Mitra. Speak in Hindi/English as per prompt. Help with farming.`
+            },
+            callbacks: {
+               onopen: () => { 
+                  setActive(true);
+                  processor.onaudioprocess = (e) => {
+                     const blob = createPCMChunk(e.inputBuffer.getChannelData(0));
+                     session.sendRealtimeInput({ media: blob });
+                  };
+               },
+               onmessage: async (msg) => {
+                  const audioData = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+                  if (audioData) {
+                     const buffer = await decodeAudioData(decode(audioData), ctxOut, 24000, 1);
+                     const src = ctxOut.createBufferSource();
+                     src.buffer = buffer; src.connect(ctxOut.destination); src.start();
+                  }
+               }
+            }
+         });
+         sessionRef.current = session;
+       } catch (e) { console.error(e); alert("Microphone access failed."); }
+    }
+  };
+
   return (
-    <div className="h-full bg-slate-50 overflow-y-auto pb-32 animate-slide-up">
-       <Header onBack={selectedPost ? () => setSelectedPost(null) : onBack} />
-       {!selectedPost ? (
-         <div className="p-8 max-w-7xl mx-auto space-y-12">
-           <div className="flex flex-col md:flex-row justify-between items-end gap-6">
-              <div>
-                 <h2 className="text-5xl font-black tracking-tighter text-slate-900 mb-2">शेतीचा ज्ञानकोश</h2>
-                 <p className="text-slate-500 font-bold">नवीन तंत्रज्ञान आणि प्रयोगांची माहिती</p>
-              </div>
-              <div className="flex gap-2">
-                 {['नवीन', 'लोकप्रिय', 'तंत्रज्ञान'].map(tag => (
-                   <span key={tag} className="px-5 py-2.5 bg-white rounded-2xl border border-slate-200 text-sm font-bold cursor-pointer hover:bg-emerald-600 hover:text-white transition-colors">
-                     {tag}
-                   </span>
-                 ))}
-              </div>
-           </div>
+    <div className="h-full bg-slate-900 text-white flex flex-col relative overflow-hidden">
+       <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-[-20%] left-[-20%] w-[140%] h-[140%] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-900/30 via-slate-900 to-slate-900 animate-pulse"></div>
+          {active && (
+             <>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[100px] animate-scale"></div>
+                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20"></div>
+             </>
+          )}
+       </div>
 
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-             {MOCK_BLOGS.map(post => (
-               <div key={post.id} onClick={() => setSelectedPost(post)} className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-slate-100 cursor-pointer group hover:-translate-y-3 hover:shadow-2xl transition-all duration-500">
-                  <div className="h-64 overflow-hidden relative">
-                    <img src={post.image} className="w-full h-full object-cover group-hover:scale-110 transition-all duration-700" alt={post.title} />
-                    <div className="absolute top-4 left-4 px-4 py-2 bg-emerald-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest">{post.category}</div>
-                  </div>
-                  <div className="p-8 space-y-4">
-                     <h3 className="text-2xl font-black text-slate-900 group-hover:text-emerald-600 transition-colors leading-tight">{post.title}</h3>
-                     <p className="text-slate-500 font-medium line-clamp-2 leading-relaxed">{post.intro}</p>
-                     <div className="flex items-center gap-3 pt-4 border-t border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                        <UserCircle size={16}/> {post.author} • <Clock size={16}/> {post.date}
-                     </div>
-                  </div>
-               </div>
-             ))}
-           </div>
-         </div>
-       ) : (
-         <div className="max-w-4xl mx-auto bg-white min-h-screen p-8 md:p-16 space-y-12 animate-in fade-in zoom-in duration-500">
-            <div className="space-y-6">
-               <span className="px-5 py-2.5 bg-emerald-50 text-emerald-600 rounded-full text-xs font-black uppercase tracking-widest inline-block">{selectedPost.category}</span>
-               <h1 className="text-5xl md:text-7xl font-black leading-[1.1] text-slate-900 tracking-tighter">{selectedPost.title}</h1>
-               <div className="flex items-center gap-6 text-slate-400 font-bold uppercase tracking-widest text-[10px]">
-                  <span className="flex items-center gap-2"><User size={14}/> {selectedPost.author}</span>
-                  <span className="flex items-center gap-2"><Calendar size={14}/> {selectedPost.date}</span>
-               </div>
-            </div>
-            
-            <img src={selectedPost.image} className="w-full h-[500px] object-cover rounded-[3.5rem] shadow-2xl" alt="Post" />
-            
-            <div className="prose prose-xl prose-emerald max-w-none">
-               <p className="text-2xl leading-relaxed text-slate-600 italic font-medium border-l-8 border-emerald-500 pl-8 mb-12">{selectedPost.intro}</p>
-               {selectedPost.sections.map((s, i) => (
-                 <div key={i} className="space-y-8 mb-16">
-                    <h2 className="text-4xl font-black text-slate-900 tracking-tight">{s.heading}</h2>
-                    <p className="text-xl leading-relaxed text-slate-500 font-medium">{s.content}</p>
-                    {s.image && <img src={s.image} className="w-full rounded-[3rem] shadow-xl" alt="Section" />}
-                 </div>
+       <div className="relative z-10 px-6 pt-6 md:pt-10 flex justify-between items-center max-w-5xl mx-auto w-full">
+          <button onClick={onBack} className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 active:scale-90 transition-transform"><ArrowLeft /></button>
+          <div className="bg-white/5 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest backdrop-blur-md border border-white/5">
+            {active ? <span className="text-emerald-400 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"/> Live Session</span> : "AI Ready"}
+          </div>
+          <div className="w-12"></div>
+       </div>
+
+       <div className="flex-1 flex flex-col items-center justify-center relative z-10 p-6 space-y-16 max-w-4xl mx-auto w-full">
+          <div className="relative group cursor-pointer" onClick={toggleSession}>
+             {active && (
+                <>
+                  <div className="absolute inset-0 bg-emerald-500 rounded-full animate-ping opacity-20 duration-1000"></div>
+                  <div className="absolute inset-[-40px] bg-emerald-500/10 rounded-full animate-pulse blur-2xl"></div>
+                </>
+             )}
+             <div className={`w-40 h-40 md:w-56 md:h-56 rounded-full flex items-center justify-center shadow-[0_0_80px_rgba(16,185,129,0.2)] transition-all duration-500 relative z-10 border-[8px] ${active ? 'bg-white text-emerald-600 scale-105 border-emerald-400/30' : 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white border-white/10 hover:scale-105 hover:shadow-[0_0_100px_rgba(16,185,129,0.4)]'}`}>
+                {active ? <Mic2 size={64} className="animate-bounce" /> : <Mic size={64} />}
+             </div>
+          </div>
+          
+          <div className="text-center space-y-4 animate-enter delay-100">
+             <h2 className="text-4xl md:text-5xl font-black tracking-tight">{active ? t.voice_title : t.voice_tap}</h2>
+             <p className="text-slate-400 font-medium leading-relaxed text-lg max-w-md mx-auto">{t.voice_desc}</p>
+          </div>
+       </div>
+
+       {!active && (
+         <div className="relative z-10 p-6 pb-20 md:pb-12 animate-enter delay-200 max-w-5xl mx-auto w-full">
+            <div className="flex flex-wrap justify-center gap-4">
+               {t.voice_hints.map((q: string, i: number) => (
+                  <button key={i} className="px-6 py-3 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 hover:border-emerald-500/50 hover:text-emerald-400 active:scale-95 transition-all text-sm font-medium">
+                     {q}
+                  </button>
                ))}
-            </div>
-
-            <div className="bg-slate-900 text-white p-12 rounded-[3.5rem] relative overflow-hidden">
-               <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -mr-20 -mt-20 blur-2xl"></div>
-               <h3 className="text-3xl font-black mb-6 flex items-center gap-3"><Lightbulb className="text-amber-400"/> निष्कर्ष</h3>
-               <p className="text-xl font-medium text-slate-300 leading-relaxed italic">{selectedPost.conclusion}</p>
-               <button className="mt-10 px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-emerald-500 transition-colors flex items-center gap-3">
-                  लेख शेअर करा <Share2 size={18}/>
-               </button>
             </div>
          </div>
        )}
@@ -376,571 +461,346 @@ const AgriBlog = ({ lang, onBack }: { lang: Language, onBack: () => void }) => {
   );
 };
 
-// --- VOICE ASSISTANT ---
-const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProfile, onBack: () => void }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isActive, setIsActive] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [userTranscription, setUserTranscription] = useState('');
-  const [aiTranscription, setAiTranscription] = useState('');
-  const [timer, setTimer] = useState(0);
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const sessionRef = useRef<any>(null);
-  const shouldBeActiveRef = useRef<boolean>(false);
-  const timerRef = useRef<any>(null);
-  const audioContextInRef = useRef<AudioContext | null>(null);
-  const audioContextOutRef = useRef<AudioContext | null>(null);
-  const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
-  const micStreamRef = useRef<MediaStream | null>(null);
-
-  useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, userTranscription, aiTranscription]);
-
-  useEffect(() => {
-    if (isActive) timerRef.current = setInterval(() => setTimer(prev => prev + 1), 1000);
-    else { clearInterval(timerRef.current); setTimer(0); }
-    return () => clearInterval(timerRef.current);
-  }, [isActive]);
-
-  const stopSession = () => {
-    shouldBeActiveRef.current = false;
-    if (sessionRef.current) { 
-        try {
-            sessionRef.current.close(); 
-        } catch (e) {
-            console.error("Error closing session:", e);
-        }
-        sessionRef.current = null; 
-    }
-    
-    // Stop microphone stream tracks
-    if (micStreamRef.current) {
-        micStreamRef.current.getTracks().forEach(track => track.stop());
-        micStreamRef.current = null;
-    }
-
-    if (audioContextInRef.current) {
-        try { audioContextInRef.current.close(); } catch(e) {}
-        audioContextInRef.current = null;
-    }
-    if (audioContextOutRef.current) {
-        try { audioContextOutRef.current.close(); } catch(e) {}
-        audioContextOutRef.current = null;
-    }
-    sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
-    sourcesRef.current.clear();
-    setIsActive(false);
-    setIsConnecting(false);
-  };
-
-  const startSession = async (isRetry = false) => {
-    shouldBeActiveRef.current = true;
-    setIsConnecting(true);
-    
-    try {
-      if (!process.env.API_KEY) {
-          throw new Error("API Key is missing");
-      }
-
-      // Explicitly request microphone permission first to handle errors
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        micStreamRef.current = stream;
-      } catch (err: any) {
-        console.error("Microphone permission error:", err);
-        let errorMsg = "Microphone access denied. Please check your permissions.";
-        if (err.name === 'NotAllowedError') errorMsg = "You denied microphone permission. Please allow it in browser settings.";
-        else if (err.name === 'NotFoundError') errorMsg = "No microphone found on this device.";
-        alert(errorMsg);
-        setIsConnecting(false);
-        return;
-      }
-
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      const ctxIn = new AudioContextClass({ sampleRate: 16000 });
-      const ctxOut = new AudioContextClass({ sampleRate: 24000 });
-      
-      audioContextInRef.current = ctxIn;
-      audioContextOutRef.current = ctxOut;
-
-      const sourceMic = ctxIn.createMediaStreamSource(stream);
-      const scriptProcessor = ctxIn.createScriptProcessor(4096, 1, 1);
-
-      // Create a gain node with 0 gain to mute local feedback while keeping the graph active
-      const muteGain = ctxIn.createGain();
-      muteGain.gain.value = 0;
-
-      sourceMic.connect(scriptProcessor);
-      scriptProcessor.connect(muteGain);
-      muteGain.connect(ctxIn.destination);
-
-      const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } },
-          systemInstruction: lang === 'mr' ? `तू 'AI कृषी मित्र' आहेस. अस्सल ग्रामीण मराठमोळी भाषा वापर. पिकाबद्दल ${user.crop} वर चर्चा कर.` : `You are AI Krushi Mitra. Speak in a native warm tone about ${user.crop}.`,
-          outputAudioTranscription: {},
-          inputAudioTranscription: {}
-        },
-        callbacks: {
-          onopen: () => {
-            console.log("Session opened");
-            setIsActive(true); 
-            setIsConnecting(false);
-            
-            scriptProcessor.onaudioprocess = (e) => {
-              if (!shouldBeActiveRef.current) return;
-              const inputData = e.inputBuffer.getChannelData(0);
-              const pcmBlob = createPCMChunk(inputData);
-              sessionPromise.then(s => s?.sendRealtimeInput({ media: pcmBlob }));
-            };
-          },
-          onmessage: async (msg) => {
-            if (msg.serverContent?.outputTranscription) setAiTranscription(prev => prev + msg.serverContent!.outputTranscription!.text);
-            if (msg.serverContent?.inputTranscription) setUserTranscription(prev => prev + msg.serverContent!.inputTranscription!.text);
-            if (msg.serverContent?.turnComplete) {
-              setMessages(p => [...p, { id: `u-${Date.now()}`, role: 'user', text: userTranscription, timestamp: new Date() }, { id: `a-${Date.now()}`, role: 'model', text: aiTranscription, timestamp: new Date() }]);
-              setUserTranscription(''); setAiTranscription('');
-            }
-            const base64 = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-            if (base64 && audioContextOutRef.current) {
-              setIsSpeaking(true);
-              const audioBuffer = await decodeAudioData(decode(base64), audioContextOutRef.current, 24000, 1);
-              const source = audioContextOutRef.current.createBufferSource();
-              source.buffer = audioBuffer;
-              source.connect(audioContextOutRef.current.destination);
-              source.onended = () => { sourcesRef.current.delete(source); if (sourcesRef.current.size === 0) setIsSpeaking(false); };
-              source.start(); sourcesRef.current.add(source);
-            }
-          },
-          onerror: (err) => { 
-              console.error("Session error:", err);
-              if (shouldBeActiveRef.current) {
-                  // alert("Connection interrupted. Retrying...");
-                  // Optional: Retry logic
-              }
-          },
-          onclose: () => { 
-              console.log("Session closed");
-              if (shouldBeActiveRef.current) {
-                  setIsActive(false); 
-              }
-          }
-        }
-      });
-      sessionRef.current = await sessionPromise;
-    } catch (error: any) { 
-        console.error("Start session failed:", error);
-        alert(`Could not start voice session: ${error.message}`);
-        setIsConnecting(false); 
-        stopSession();
-    }
-  };
-
+const MarketView = ({ lang, onBack }: any) => {
+  const t = TRANSLATIONS[lang];
   return (
-    <div className="h-full bg-slate-950 flex flex-col relative overflow-hidden">
-       {/* Background Animated Blobs */}
-       <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-40">
-          <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-emerald-600/30 rounded-full blur-[120px] animate-blob"></div>
-          <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-sky-600/20 rounded-full blur-[100px] animate-blob delay-300"></div>
+    <div className="h-full bg-slate-50 overflow-y-auto custom-scrollbar">
+       <div className="md:hidden"><Header title={t.market_title} subtitle={t.market_subtitle} onBack={onBack} /></div>
+       <div className="hidden md:block px-10 pt-10 pb-4">
+          <h1 className="text-4xl font-black text-slate-900">{t.market_title}</h1>
+          <p className="text-slate-500 mt-2 font-medium">{t.market_subtitle}</p>
        </div>
 
-       <div className="relative z-10 glass-dark p-6 flex justify-between items-center">
-          <button onClick={onBack} className="p-3 bg-white/5 rounded-2xl text-white hover:bg-white/10 transition-colors"><ArrowLeft/></button>
-          <div className="text-center">
-             <h2 className="text-white font-black text-xl tracking-tight">Krushi AI Voice</h2>
-             <div className="flex items-center gap-2 justify-center mt-1">
-                <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-rose-500 animate-pulse' : 'bg-slate-600'}`}></div>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">{isActive ? 'Listening' : 'Ready'}</span>
-             </div>
-          </div>
-          <div className="w-12 h-12 flex items-center justify-center font-mono font-black text-emerald-400 bg-white/5 rounded-2xl border border-white/10">
-             {Math.floor(timer/60)}:{timer%60 < 10 ? '0'+timer%60 : timer%60}
+       <div className="p-6 md:p-10 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {MOCK_MARKET.map((m, i) => (
+              <div key={i} className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-xl hover:border-slate-200 transition-all duration-300 flex flex-col justify-between group animate-enter" style={{ animationDelay: `${i * 100}ms` }}>
+                 <div className="flex justify-between items-start mb-6">
+                    <div className={`w-14 h-14 rounded-2xl ${m.bg} flex items-center justify-center text-slate-700 group-hover:scale-110 transition-transform`}>
+                       <m.icon size={28} className={m.color} />
+                    </div>
+                    <div className={`text-xs font-black ${m.color} bg-slate-50 px-3 py-1.5 rounded-lg`}>{m.trend}</div>
+                 </div>
+                 <div>
+                    <h3 className="text-xl font-black text-slate-900">{m.name}</h3>
+                    <div className="flex justify-between items-end mt-2">
+                       <div>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{t.price_label}</p>
+                          <p className="text-2xl font-black text-slate-900">₹{m.price}</p>
+                       </div>
+                       <div className="text-right">
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{t.arrival_label}</p>
+                          <p className="text-sm font-bold text-slate-700">{m.arrival}</p>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+            ))}
           </div>
        </div>
+    </div>
+  );
+};
 
-       <div className="relative z-10 flex-1 overflow-y-auto p-8 space-y-8 scrollbar-hide">
-          {messages.length === 0 && !userTranscription && !aiTranscription && (
-            <div className="h-full flex flex-col items-center justify-center text-center space-y-8 animate-in fade-in zoom-in duration-1000">
-               <div className="relative">
-                  <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-3xl animate-pulse"></div>
-                  <div className="w-32 h-32 bg-emerald-500/10 rounded-full flex items-center justify-center border border-emerald-500/30 relative">
-                     <Mic2 size={64} className="text-emerald-500 animate-float"/>
+const SchemesView = ({ lang, onBack }: any) => {
+   const t = TRANSLATIONS[lang];
+   return (
+      <div className="h-full bg-slate-50 overflow-y-auto custom-scrollbar">
+         <div className="md:hidden"><Header title={t.schemes_title} subtitle={t.schemes_desc} onBack={onBack} /></div>
+         <div className="hidden md:block px-10 pt-10 pb-6">
+             <h1 className="text-4xl font-black text-slate-900">{t.schemes_title}</h1>
+             <p className="text-slate-500 mt-2 font-medium">{t.schemes_desc}</p>
+         </div>
+         
+         <div className="p-6 md:p-10 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {MOCK_SCHEMES.map((s, i) => (
+               <div key={s.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group animate-enter flex flex-col justify-between" style={{ animationDelay: `${i*100}ms` }}>
+                  <div className="flex justify-between items-start mb-4">
+                     <div className={`w-14 h-14 rounded-2xl ${s.color} flex items-center justify-center`}>
+                        <Landmark size={28} />
+                     </div>
+                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${s.status === 'OPEN' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                        {s.status === 'OPEN' ? t.open_status : t.closed_status}
+                     </span>
                   </div>
+                  <div>
+                     <h3 className="text-xl font-black text-slate-900 mb-2">{s.title}</h3>
+                     <div className="space-y-2 mb-6">
+                        <div className="flex justify-between text-sm">
+                           <span className="text-slate-400 font-bold">{t.scheme_benefit}:</span>
+                           <span className="font-bold text-slate-800">{s.benefit}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                           <span className="text-slate-400 font-bold">{t.scheme_deadline}:</span>
+                           <span className="font-bold text-slate-800">{s.deadline}</span>
+                        </div>
+                     </div>
+                  </div>
+                  <Button fullWidth variant={s.status === 'OPEN' ? 'primary' : 'outline'} disabled={s.status !== 'OPEN'}>
+                     {t.apply_btn} <ArrowUpRight size={18}/>
+                  </Button>
                </div>
-               <div className="space-y-2">
-                  <h3 className="text-4xl font-black text-white tracking-tighter">राम राम पाटील!</h3>
-                  <p className="text-slate-500 text-lg font-bold">विचारा काहीही, मी ऐकतोय...</p>
-               </div>
-            </div>
-          )}
+            ))}
+         </div>
+      </div>
+   );
+};
 
-          {messages.map(m => (
-            <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-up`}>
-               <div className={`max-w-[85%] p-6 rounded-[2.5rem] ${m.role === 'user' ? 'bg-emerald-600 text-white shadow-2xl shadow-emerald-900/40' : 'glass-dark text-white border-white/5'}`}>
-                  <p className="text-lg font-bold leading-relaxed">{m.text}</p>
-               </div>
+const WeatherView = ({ lang, onBack }: any) => {
+   const t = TRANSLATIONS[lang];
+   return (
+      <div className="h-full bg-white overflow-y-auto custom-scrollbar">
+         <div className="md:hidden"><Header title="" onBack={onBack} /></div>
+         
+         <div className="relative bg-gradient-to-br from-blue-600 to-indigo-800 rounded-b-[3rem] md:rounded-[3rem] md:m-8 p-8 pb-12 text-white shadow-2xl overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+            <div className="mt-4 flex flex-col items-center text-center relative z-10 animate-enter">
+               <div className="bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-6 border border-white/20 shadow-lg">Baramati, Pune</div>
+               <Sun size={100} className="text-yellow-300 mb-6 animate-spin-slow drop-shadow-xl"/>
+               <h1 className="text-9xl font-black tracking-tighter">28°</h1>
+               <p className="text-2xl font-medium opacity-90 mt-2">Sunny & Clear</p>
             </div>
-          ))}
+         </div>
 
-          {(userTranscription || aiTranscription) && (
-            <div className="space-y-4">
-              {userTranscription && (
-                <div className="flex justify-end animate-in fade-in slide-in-from-right-10">
-                   <div className="max-w-[80%] p-6 rounded-[2.5rem] bg-emerald-900/40 text-emerald-200 italic border-r-8 border-emerald-500">
-                      {userTranscription}...
-                   </div>
-                </div>
-              )}
-              {aiTranscription && (
-                <div className="flex justify-start animate-in fade-in slide-in-from-left-10">
-                   <div className="max-w-[80%] p-6 rounded-[2.5rem] glass-dark text-white/60 italic border-l-8 border-emerald-500 flex items-center gap-4">
-                      <div className="flex gap-1">
-                         <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce"></div>
-                         <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce delay-100"></div>
-                         <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce delay-200"></div>
-                      </div>
-                      {aiTranscription}...
-                   </div>
-                </div>
-              )}
+         <div className="p-6 md:p-10 -mt-8 relative z-20 max-w-5xl mx-auto">
+            <div className="grid grid-cols-3 gap-4 md:gap-8">
+               {[
+                  { label: t.wind, val: '12 km/h', icon: Wind },
+                  { label: t.humidity, val: '45%', icon: Droplets },
+                  { label: t.uv_index, val: 'High', icon: Sun },
+               ].map((item, i) => (
+                  <div key={i} className="bg-white p-6 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-50 flex flex-col items-center justify-center gap-3 animate-enter hover:-translate-y-1 transition-transform" style={{ animationDelay: `${i*100}ms` }}>
+                     <item.icon size={28} className="text-blue-500" />
+                     <span className="font-black text-xl text-slate-800">{item.val}</span>
+                     <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{item.label}</span>
+                  </div>
+               ))}
             </div>
-          )}
-          <div ref={scrollRef} />
-       </div>
-
-       <div className="relative z-10 p-12 bg-gradient-to-t from-black via-black/80 to-transparent">
-          <div className="max-w-2xl mx-auto flex flex-col items-center gap-10">
-             {isActive && (
-               <div className="flex items-center gap-2 h-20 w-full justify-center">
-                  {[...Array(24)].map((_, i) => (
-                    <div 
-                      key={i} 
-                      className={`w-1.5 rounded-full bg-emerald-500 transition-all duration-300 ${isSpeaking ? 'h-full animate-pulse' : 'h-1/4 animate-bounce'}`} 
-                      style={{ animationDelay: `${i * 0.04}s` }}
-                    ></div>
+            
+            <div className="mt-12">
+               <h3 className="font-black text-slate-900 text-xl mb-6 px-2">{t.weather_subtitle}</h3>
+               <div className="space-y-4">
+                  {['Monday', 'Tuesday', 'Wednesday'].map((d, i) => (
+                     <div key={i} className="flex items-center justify-between p-6 bg-slate-50 rounded-[2rem] animate-enter-right hover:bg-white hover:shadow-lg transition-all border border-transparent hover:border-slate-100" style={{ animationDelay: `${i*100 + 300}ms` }}>
+                        <span className="font-bold text-slate-700 w-24">{d}</span>
+                        <div className="flex items-center gap-3 flex-1 justify-center">
+                           <CloudSun size={24} className="text-slate-400"/>
+                           <span className="font-bold text-slate-600">Partly Cloudy</span>
+                        </div>
+                        <span className="font-black text-slate-900 text-lg">26° / 18°</span>
+                     </div>
                   ))}
                </div>
-             )}
-             <button 
-               onClick={isActive ? stopSession : () => startSession()}
-               className={`group relative w-28 h-28 rounded-full flex items-center justify-center transition-all duration-500 ${isActive ? 'bg-rose-500 scale-110 shadow-[0_0_50px_rgba(244,63,94,0.4)]' : 'bg-emerald-600 hover:scale-110 shadow-[0_0_30px_rgba(16,185,129,0.3)]'}`}
-             >
-                <div className={`absolute inset-0 rounded-full animate-ping opacity-20 ${isActive ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
-                {isActive ? <MicOff size={40} className="text-white"/> : isConnecting ? <RefreshCw size={40} className="text-white animate-spin"/> : <Mic size={40} className="text-white"/>}
-             </button>
-          </div>
-       </div>
-    </div>
-  );
-};
-
-// --- DISEASE DETECTOR ---
-const DiseaseDetector = ({ lang, onBack }: { lang: Language, onBack: () => void }) => {
-  const t = TRANSLATIONS[lang];
-  const [image, setImage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const base64 = event.target?.result as string;
-      setImage(base64); setLoading(true);
-      const analysis = await analyzeCropDisease(base64, lang);
-      setResult(analysis); setLoading(false);
-      speak(analysis, lang);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  return (
-    <div className="h-full bg-slate-50 overflow-y-auto pb-32 animate-slide-up">
-       <Header onBack={onBack} />
-       <div className="p-8 max-w-4xl mx-auto space-y-10">
-          {!image ? (
-            <div onClick={() => fileInputRef.current?.click()} className="aspect-video bg-white border-4 border-dashed border-slate-200 rounded-[3.5rem] flex flex-col items-center justify-center cursor-pointer hover:bg-emerald-50 hover:border-emerald-500 group transition-all duration-500 shadow-xl shadow-slate-200/50">
-               <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 mb-8 group-hover:scale-110 transition-transform shadow-inner">
-                  <Camera size={44}/>
-               </div>
-               <h3 className="text-3xl font-black text-slate-800 tracking-tight">{t.upload_photo}</h3>
-               <p className="mt-2 text-slate-400 font-bold uppercase tracking-[0.2em] text-xs">Analyze crop health instantly</p>
-               <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleCapture} />
             </div>
-          ) : (
-            <div className="space-y-10">
-               <div className="relative rounded-[3.5rem] overflow-hidden shadow-2xl border-[10px] border-white group">
-                  <img src={image} className="w-full h-auto" alt="Crop" />
-                  {loading && (
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] overflow-hidden">
-                       <div className="absolute inset-x-0 h-1 bg-emerald-500 shadow-[0_0_20px_#10b981] animate-scan"></div>
-                    </div>
-                  )}
-                  <button onClick={() => { setImage(null); setResult(null); window.speechSynthesis.cancel(); }} className="absolute top-6 right-6 p-5 bg-slate-900/80 text-white rounded-full backdrop-blur-md hover:bg-rose-500 transition-colors shadow-2xl">
-                    <X size={24}/>
-                  </button>
+         </div>
+      </div>
+   )
+}
+
+const DiseaseDetector = ({ lang, onBack }: any) => {
+   const t = TRANSLATIONS[lang];
+   const [img, setImg] = useState<string | null>(null);
+   const [analyzing, setAnalyzing] = useState(false);
+   const [result, setResult] = useState<string | null>(null);
+   const inputRef = useRef<HTMLInputElement>(null);
+   const [dragActive, setDragActive] = useState(false);
+
+   const handleFile = (file: File) => {
+      const r = new FileReader();
+      r.onload = async (ev) => {
+         setImg(ev.target?.result as string);
+         setAnalyzing(true);
+         const res = await analyzeCropDisease(ev.target?.result as string, lang);
+         setResult(res); setAnalyzing(false);
+      }
+      r.readAsDataURL(file);
+   }
+
+   const onDrop = (e: React.DragEvent) => {
+      e.preventDefault(); setDragActive(false);
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+   };
+
+   return (
+      <div className="h-full bg-slate-900 text-white overflow-y-auto custom-scrollbar">
+         <div className="md:hidden"><Header title="" onBack={onBack} /></div>
+         
+         <div className="p-6 md:p-12 max-w-6xl mx-auto min-h-screen flex flex-col">
+            <div className="hidden md:flex justify-between items-center mb-10">
+               <div>
+                  <h1 className="text-4xl font-black">{t.scan_title}</h1>
+                  <p className="text-slate-400 mt-2">{t.scan_desc}</p>
                </div>
-               
-               {loading ? (
-                 <div className="bg-white p-16 rounded-[3.5rem] shadow-xl border border-slate-100 flex flex-col items-center gap-8">
-                    <div className="relative">
-                       <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-2xl animate-pulse"></div>
-                       <Loader2 className="animate-spin text-emerald-600 relative" size={72}/>
-                    </div>
-                    <div className="text-center">
-                       <h3 className="text-4xl font-black text-slate-900 tracking-tighter mb-2">{t.analyzing}</h3>
-                       <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Gemini AI is examining cells...</p>
-                    </div>
-                 </div>
-               ) : result && (
-                 <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl border-l-[16px] border-emerald-500 space-y-8 animate-in slide-in-from-bottom-10">
-                    <div className="flex items-center gap-4 text-emerald-600">
-                       <CheckCircle2 size={44}/>
-                       <h3 className="text-4xl font-black tracking-tighter">{t.result}</h3>
-                    </div>
-                    <div className="text-slate-700 text-2xl font-medium leading-relaxed whitespace-pre-wrap">{result}</div>
-                    <div className="flex gap-4 pt-6">
-                       <Button variant="outline" className="flex-1"><Share2 size={20}/> Share Report</Button>
-                       <Button variant="primary" className="flex-1"><Save size={20}/> Save Record</Button>
-                    </div>
-                 </div>
+               <button onClick={onBack} className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"><X/></button>
+            </div>
+
+            <div className="flex-1 flex flex-col lg:flex-row gap-10">
+               {/* Upload Area */}
+               <div className="flex-1">
+                  {!img ? (
+                     <div 
+                        onClick={() => inputRef.current?.click()}
+                        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                        onDragLeave={() => setDragActive(false)}
+                        onDrop={onDrop}
+                        className={`h-[50vh] md:h-[600px] border-4 border-dashed rounded-[3rem] flex flex-col items-center justify-center transition-all cursor-pointer relative overflow-hidden group ${dragActive ? 'border-emerald-500 bg-emerald-900/20' : 'border-slate-700 bg-slate-800/50 hover:bg-slate-800 hover:border-slate-500'}`}
+                     >
+                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 pointer-events-none"></div>
+                        <div className="w-24 h-24 bg-emerald-600 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(16,185,129,0.4)] mb-8 animate-pulse group-hover:scale-110 transition-transform">
+                           <Camera size={40} />
+                        </div>
+                        <h3 className="text-3xl font-black mb-2">{t.take_photo}</h3>
+                        <p className="text-slate-400 font-medium mb-8">{t.upload_text}</p>
+                        <button className="px-8 py-3 bg-white text-slate-900 rounded-full font-bold hover:bg-emerald-50 transition-colors">Select File</button>
+                        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files && handleFile(e.target.files[0])}/>
+                     </div>
+                  ) : (
+                     <div className="relative rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl h-[50vh] md:h-[600px] bg-black">
+                        <img src={img} className="w-full h-full object-contain" />
+                        {analyzing && (
+                           <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center backdrop-blur-sm z-20">
+                              <Loader2 size={64} className="text-emerald-500 animate-spin mb-6" />
+                              <p className="font-bold tracking-widest uppercase text-sm animate-pulse">{t.analyzing}</p>
+                           </div>
+                        )}
+                        <button onClick={() => { setImg(null); setResult(null); }} className="absolute top-6 right-6 bg-black/60 p-3 rounded-full backdrop-blur-md text-white hover:bg-red-600 transition-colors z-30"><X size={24}/></button>
+                     </div>
+                  )}
+               </div>
+
+               {/* Result Area */}
+               {result && (
+                  <div className="lg:w-[400px] bg-slate-800/50 border border-slate-700 p-8 rounded-[2.5rem] animate-enter-right flex flex-col">
+                     <div className="flex items-center gap-4 mb-6 text-emerald-400">
+                        <CheckCircle2 size={32} />
+                        <span className="font-black text-2xl tracking-tight">{t.analysis_report}</span>
+                     </div>
+                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                         <p className="text-slate-300 leading-relaxed font-medium whitespace-pre-wrap text-lg">{result}</p>
+                     </div>
+                     <div className="mt-8 pt-6 border-t border-slate-700">
+                        <Button fullWidth variant="primary" className="mb-3">{t.save_report}</Button>
+                        <Button fullWidth variant="glass">{t.share_expert}</Button>
+                     </div>
+                  </div>
                )}
             </div>
-          )}
-       </div>
-    </div>
-  );
-};
+         </div>
+      </div>
+   )
+}
 
-// --- MAIN HUB ---
-const Hub = ({ lang, user, onNavigate }: any) => {
-  const t = TRANSLATIONS[lang];
-  return (
-    <div className="h-full bg-slate-50 text-slate-900 overflow-y-auto pb-40 scrollbar-hide">
-       {/* High-Impact Alert */}
-       <div className="bg-amber-50 p-4 border-b border-amber-100 flex items-center justify-center gap-4 animate-in slide-in-from-top duration-1000">
-          <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
-             <Bell className="text-amber-600 animate-swing" size={18}/>
-          </div>
-          <p className="text-sm font-bold text-amber-900">
-             {lang === 'mr' ? 'हवामान इशारा: पुढच्या २ तासात विजांच्या कडकडाटासह पावसाची शक्यता!' : 'Weather Alert: Heavy thunderstorm expected in 2 hours!'}
-          </p>
-          <button className="text-[10px] font-black uppercase text-amber-600 bg-white px-3 py-1 rounded-full border border-amber-200">View Map</button>
-       </div>
+const AgriBlog = ({onBack, lang}: any) => {
+   const t = TRANSLATIONS[lang];
+   return (
+      <div className="h-full bg-slate-50 overflow-y-auto custom-scrollbar">
+         <div className="md:hidden"><Header title={t.blog_title} subtitle={t.blog_subtitle} onBack={onBack}/></div>
+         <div className="hidden md:block px-10 pt-10 pb-6">
+             <h1 className="text-4xl font-black text-slate-900">{t.blog_title}</h1>
+             <p className="text-slate-500 mt-2 font-medium">{t.blog_subtitle}</p>
+         </div>
 
-       <div className="px-6 py-12 max-w-7xl mx-auto space-y-16">
-          <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-10">
-             <div className="flex-1 animate-in slide-in-from-left-20 duration-1000">
-                <div className="flex items-center gap-3 mb-6">
-                   <div className="px-4 py-1.5 bg-emerald-600 text-white rounded-full text-[10px] font-black tracking-[0.2em] uppercase">Krushi AI Pro</div>
-                   <div className="px-4 py-1.5 bg-slate-900 text-white rounded-full text-[10px] font-black tracking-[0.2em] uppercase">V3.1</div>
-                </div>
-                <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] text-slate-950">
-                   नमस्कार, <br/>
-                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-emerald-400">{user.name.split(' ')[0]} पाटील!</span>
-                </h1>
-                <p className="mt-8 text-xl text-slate-500 font-bold max-w-lg">तुमच्या <span className="text-emerald-600 font-black">{user.crop}</span> शेतीसाठी आजचा खास सल्ला आणि माहिती.</p>
-             </div>
-             
-             {/* Dynamic Weather Widget */}
-             <div onClick={() => onNavigate('WEATHER')} className="cursor-pointer group relative">
-                <div className="absolute inset-0 bg-emerald-500/10 blur-3xl rounded-full scale-150 group-hover:bg-emerald-500/20 transition-all"></div>
-                <div className="relative glass-card bg-white p-8 rounded-[3.5rem] shadow-2xl border border-white flex items-center gap-10 hover:scale-105 transition-all duration-500">
-                   <div className="text-right">
-                      <div className="text-6xl font-black text-slate-900 tracking-tighter">28°C</div>
-                      <div className="flex items-center justify-end gap-2 text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">
-                         <MapPin size={12}/> Baramati, IN
+         <div className="p-6 md:px-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {MOCK_BLOGS.map((b,i) => (
+               <div key={b.id} className="group cursor-pointer bg-white rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 border border-slate-100 flex flex-col">
+                  <div className="h-64 overflow-hidden relative">
+                     <img src={b.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"/>
+                     <div className="absolute top-4 left-4">
+                        <span className="bg-emerald-600 text-white text-[10px] font-black uppercase px-3 py-1.5 rounded-full shadow-lg">{b.category}</span>
+                     </div>
+                  </div>
+                  <div className="p-8 flex-1 flex flex-col">
+                      <div className="flex items-center gap-3 text-xs font-bold text-slate-400 mb-4 uppercase tracking-wider">
+                         <Clock size={14}/> {b.date} • <UserCircle size={14}/> {b.author}
                       </div>
-                   </div>
-                   <div className="w-24 h-24 bg-sky-50 rounded-[2.5rem] flex items-center justify-center text-sky-500 shadow-inner group-hover:rotate-12 transition-transform">
-                      <Sun size={56} className="animate-spin-slow"/>
-                   </div>
-                </div>
-             </div>
-          </header>
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-             <div onClick={() => onNavigate('BLOG')} className="md:col-span-7 lg:col-span-8 relative h-[500px] rounded-[4rem] overflow-hidden group cursor-pointer shadow-2xl">
-                <img src={MOCK_BLOGS[0].image} className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt="Blog" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
-                <div className="absolute bottom-0 left-0 p-12 w-full md:w-3/4 space-y-6">
-                   <span className="px-5 py-2 bg-emerald-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest">{MOCK_BLOGS[0].category}</span>
-                   <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter leading-tight group-hover:translate-x-2 transition-transform duration-500">{MOCK_BLOGS[0].title}</h2>
-                   <div className="flex items-center gap-4">
-                      <Button variant="glass" size="lg">लेख वाचा <ArrowUpRight size={22}/></Button>
-                   </div>
-                </div>
-             </div>
-             
-             <div onClick={() => onNavigate('DISEASE_DETECTOR')} className="md:col-span-5 lg:col-span-4 relative h-[500px] rounded-[4rem] overflow-hidden group cursor-pointer bg-emerald-600 shadow-2xl">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl group-hover:scale-150 transition-transform duration-1000"></div>
-                <div className="absolute inset-0 p-12 flex flex-col justify-end text-white space-y-6">
-                   <div className="w-20 h-20 bg-white/20 rounded-[2rem] flex items-center justify-center backdrop-blur-md border border-white/30 group-hover:rotate-6 transition-transform">
-                      <ScanLine size={40} />
-                   </div>
-                   <h3 className="text-4xl font-black leading-[0.9] tracking-tighter">{t.disease_check}</h3>
-                   <p className="text-emerald-100 font-bold leading-relaxed">पिकाच्या पानाचा फोटो काढा आणि रोगाचे अचूक निदान मिळवा.</p>
-                   <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] pt-4">
-                      Start Scanning <ChevronRight size={16}/>
-                   </div>
-                </div>
-             </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-             <ActionCard title={t.voice_help} icon={Mic} subtitle="Talk with AI" color="bg-indigo-600" onClick={() => onNavigate('VOICE_ASSISTANT')} delay="delay-100" />
-             <ActionCard title={t.market} icon={Store} subtitle="Live Rates" color="bg-amber-500" onClick={() => onNavigate('MARKET')} delay="delay-200" />
-             <ActionCard title={t.schemes} icon={Landmark} subtitle="Govt Benefits" color="bg-slate-900" onClick={() => onNavigate('SCHEMES')} delay="delay-300" />
-             <ActionCard title={t.profit} icon={TrendingUp} subtitle="Yield Forecast" color="bg-blue-600" onClick={() => onNavigate('YIELD')} delay="delay-400" />
-          </div>
-       </div>
-
-       {/* Enhanced Bottom Nav (Mobile Only) */}
-       <nav className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md lg:hidden z-50">
-          <div className="glass-dark px-8 py-5 rounded-[2.5rem] flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10">
-             <button onClick={() => onNavigate('DASHBOARD')} className="p-3 text-emerald-500 relative nav-active"><Home size={24}/></button>
-             <button onClick={() => onNavigate('BLOG')} className="p-3 text-white/50 hover:text-white transition-colors"><Newspaper size={24}/></button>
-             <button onClick={() => onNavigate('VOICE_ASSISTANT')} className="w-16 h-16 -mt-12 bg-emerald-600 rounded-full flex items-center justify-center text-white shadow-2xl shadow-emerald-500/40 border-4 border-slate-950 active:scale-90 transition-all"><Mic size={28}/></button>
-             <button onClick={() => onNavigate('MARKET')} className="p-3 text-white/50 hover:text-white transition-colors"><Store size={24}/></button>
-             <button onClick={() => onNavigate('WEATHER')} className="p-3 text-white/50 hover:text-white transition-colors"><CloudSun size={24}/></button>
-          </div>
-       </nav>
-    </div>
-  );
-};
-
-const ActionCard = ({ title, icon: Icon, onClick, delay, color, subtitle }: any) => (
-  <div onClick={onClick} className={`bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100 cursor-pointer group hover:-translate-y-4 hover:shadow-2xl hover:shadow-slate-200 transition-all duration-500 animate-in slide-in-from-bottom-10 ${delay}`}>
-    <div className={`${color} w-20 h-20 rounded-[2rem] flex items-center justify-center mb-8 text-white group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-2xl shadow-current/20`}>
-      <Icon size={36} />
-    </div>
-    <div className="space-y-2">
-       <h3 className="text-3xl font-black tracking-tighter leading-tight text-slate-900">{title}</h3>
-       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{subtitle}</p>
-    </div>
-  </div>
-);
-
-const Sidebar = ({ view, setView, lang }: any) => {
-  const t = TRANSLATIONS[lang];
-  const items = [
-    { id: 'DASHBOARD', icon: Home, label: t.dashboard },
-    { id: 'BLOG', icon: Newspaper, label: t.blog },
-    { id: 'DISEASE_DETECTOR', icon: ScanLine, label: t.disease_check },
-    { id: 'VOICE_ASSISTANT', icon: Mic, label: t.voice_help },
-    { id: 'MARKET', icon: Store, label: t.market },
-    { id: 'WEATHER', icon: CloudSun, label: t.weather },
-    { id: 'SCHEMES', icon: Landmark, label: t.schemes },
-  ];
-  return (
-    <div className="w-96 bg-white border-r border-slate-200 flex flex-col h-full hidden lg:flex shadow-2xl z-50 relative">
-      <div className="p-12 flex items-center gap-5 cursor-pointer group" onClick={() => setView('DASHBOARD')}>
-         <div className="bg-emerald-600 p-4 rounded-[1.5rem] text-white shadow-xl shadow-emerald-500/20 group-hover:scale-110 transition-transform"><Sprout size={32} /></div>
-         <h1 className="font-black text-3xl text-slate-950 tracking-tighter">AI Krushi<br/><span className="text-emerald-600">Mitra</span></h1>
+                      <h2 className="text-2xl font-black text-slate-900 leading-tight mb-4 group-hover:text-emerald-700 transition-colors">{b.title}</h2>
+                      <p className="text-slate-500 font-medium line-clamp-3 mb-6 flex-1">{b.intro}</p>
+                      <div className="flex items-center text-emerald-600 font-bold text-sm uppercase tracking-wider group-hover:gap-2 transition-all">
+                         {t.read_article} <ArrowUpRight size={16} className="ml-1"/>
+                      </div>
+                  </div>
+               </div>
+            ))}
+         </div>
       </div>
-      <div className="flex-1 px-8 space-y-4 overflow-y-auto scrollbar-hide">
-        {items.map((item) => (
-          <button 
-            key={item.id} 
-            onClick={() => setView(item.id)} 
-            className={`w-full flex items-center gap-6 p-6 rounded-[2rem] transition-all duration-500 group ${view === item.id ? 'bg-emerald-600 text-white shadow-2xl shadow-emerald-500/40 translate-x-4' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
-          >
-            <div className={`p-3 rounded-2xl ${view === item.id ? 'bg-white/20' : 'bg-slate-100 group-hover:bg-emerald-50 group-hover:text-emerald-600'} transition-all`}>
-               <item.icon size={24} />
-            </div>
-            <span className="text-lg font-black tracking-tight">{item.label}</span>
-          </button>
-        ))}
-      </div>
-      <div className="p-12 border-t border-slate-100">
-         <button className="flex items-center gap-4 text-slate-400 font-black text-xs uppercase tracking-[0.2em] hover:text-rose-500 transition-colors">
-            <Radio size={20}/> {t.logout}
-         </button>
-      </div>
-    </div>
-  );
-};
+   )
+}
 
+// --- MAIN APP LAYOUT ---
 export default function App() {
   const [view, setView] = useState<ViewState>('SPLASH');
   const [lang, setLang] = useState<Language>('mr');
   const [user] = useState<UserProfile>({ name: 'Sanjay Pawar', village: 'Baramati', district: 'Pune', landSize: '5', crop: 'Soyabean' });
 
+  // Render view content
   const renderContent = () => {
     switch (view) {
-      case 'SPLASH': return <SplashScreen onComplete={() => setView('LANGUAGE')} />;
-      case 'LANGUAGE': return <LanguageSelection onSelect={(l) => { setLang(l); setView('DASHBOARD'); }} />;
       case 'DASHBOARD': return <Hub lang={lang} user={user} onNavigate={setView} />;
-      case 'BLOG': return <AgriBlog lang={lang} onBack={() => setView('DASHBOARD')} />;
-      case 'DISEASE_DETECTOR': return <DiseaseDetector lang={lang} onBack={() => setView('DASHBOARD')} />;
-      case 'VOICE_ASSISTANT': return <VoiceAssistant lang={lang} user={user} onBack={() => setView('DASHBOARD')} />;
       case 'MARKET': return <MarketView lang={lang} onBack={() => setView('DASHBOARD')} />;
+      case 'VOICE_ASSISTANT': return <VoiceAssistant lang={lang} user={user} onBack={() => setView('DASHBOARD')} />;
       case 'WEATHER': return <WeatherView lang={lang} onBack={() => setView('DASHBOARD')} />;
+      case 'DISEASE_DETECTOR': return <DiseaseDetector lang={lang} onBack={() => setView('DASHBOARD')} />;
+      case 'BLOG': return <AgriBlog lang={lang} onBack={() => setView('DASHBOARD')} />;
       case 'SCHEMES': return <SchemesView lang={lang} onBack={() => setView('DASHBOARD')} />;
       default: return <Hub lang={lang} user={user} onNavigate={setView} />;
     }
   };
 
-  if (view === 'SPLASH' || view === 'LANGUAGE') return renderContent();
+  if (view === 'SPLASH') return <SplashScreen onComplete={() => setView('LANGUAGE')} />;
+  if (view === 'LANGUAGE') return <LangSelect onSelect={(l) => { setLang(l); setView('DASHBOARD'); }} />;
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
+    <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans selection:bg-emerald-200">
       <Sidebar view={view} setView={setView} lang={lang} />
-      <div className="flex-1 relative h-full overflow-hidden bg-white">{renderContent()}</div>
+      <div className="flex-1 flex flex-col h-full relative overflow-hidden">
+         {renderContent()}
+         <MobileNav active={view} setView={setView} lang={lang} />
+      </div>
     </div>
   );
 }
 
+// --- ONBOARDING ---
 const SplashScreen = ({ onComplete }: { onComplete: () => void }) => {
-  useEffect(() => { const t = setTimeout(onComplete, 2500); return () => clearTimeout(t); }, []);
+  useEffect(() => { setTimeout(onComplete, 2500); }, []);
   return (
-    <div className="h-full bg-emerald-600 flex flex-col items-center justify-center text-white text-center relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-full opacity-10 animate-blob">
-         <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-white rounded-full blur-[100px]"></div>
-      </div>
-      <div className="relative z-10 p-12 bg-white/20 rounded-[4rem] shadow-2xl backdrop-blur-xl border border-white/30 animate-in zoom-in-50 duration-1000">
-         <Sprout size={120} className="animate-float" />
-      </div>
-      <h1 className="text-7xl font-black mt-12 tracking-tighter relative z-10">AI कृषी मित्र</h1>
-      <p className="mt-4 text-emerald-100 font-black uppercase tracking-[0.4em] text-xs relative z-10">Modern Farming AI Ecosystem</p>
+    <div className="h-full w-full bg-emerald-600 flex flex-col items-center justify-center relative overflow-hidden bg-poly-emerald">
+       <div className="w-32 h-32 bg-white rounded-[2.5rem] flex items-center justify-center shadow-2xl animate-enter mb-8 rotate-3">
+          <Sprout size={64} className="text-emerald-600" />
+       </div>
+       <h1 className="text-6xl font-black text-white tracking-tighter animate-enter delay-100">Krushi<span className="text-emerald-200">AI</span></h1>
+       <p className="text-emerald-100 font-bold uppercase tracking-[0.3em] text-sm mt-4 animate-enter delay-200">Next Gen Farming</p>
     </div>
   );
 };
 
-const LanguageSelection = ({ onSelect }: { onSelect: (l: Language) => void }) => (
-  <div className="h-full bg-slate-50 flex flex-col items-center justify-center p-12 space-y-12 animate-in fade-in duration-1000 relative overflow-hidden">
-    <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-emerald-100/50 rounded-full -mr-80 -mt-80 blur-[120px]"></div>
-    <div className="text-center relative z-10">
-       <div className="w-28 h-28 bg-emerald-600 rounded-[2.5rem] flex items-center justify-center mb-10 shadow-2xl mx-auto text-white rotate-6 hover:rotate-0 transition-transform duration-500">
-          <Globe size={56}/>
-       </div>
-       <h2 className="text-5xl font-black text-slate-950 mb-4 tracking-tighter">निवडा तुमची भाषा</h2>
-       <p className="text-slate-400 font-bold">Select your preferred language to continue</p>
-    </div>
-    <div className="w-full max-w-xl space-y-6 relative z-10">
-       {['mr', 'hi', 'en'].map((l, i) => (
-         <button 
-           key={l} 
-           onClick={() => onSelect(l as Language)} 
-           className="w-full p-10 bg-white border border-slate-200 rounded-[3rem] text-4xl font-black text-slate-900 hover:bg-emerald-600 hover:text-white transition-all transform hover:scale-105 active:scale-95 shadow-xl hover:shadow-emerald-500/20 group animate-in slide-in-from-bottom-20"
-           style={{ animationDelay: `${i * 100}ms` }}
-         >
-           <span className="flex items-center justify-between">
-              {l === 'mr' ? 'मराठी' : l === 'hi' ? 'हिन्दी' : 'English'}
-              <ChevronRight className="opacity-0 group-hover:opacity-100 transition-opacity" size={32}/>
-           </span>
-         </button>
-       ))}
-    </div>
+const LangSelect = ({ onSelect }: { onSelect: (l: Language) => void }) => (
+  <div className="h-full w-full bg-white flex items-center justify-center p-8 bg-grid-pattern">
+     <div className="max-w-md w-full space-y-10 animate-enter">
+        <div className="text-center space-y-4">
+           <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto text-emerald-600 shadow-xl shadow-emerald-100"><Globe size={40}/></div>
+           <h2 className="text-4xl font-black text-slate-900 tracking-tight">Select Language</h2>
+           <p className="text-slate-400 font-medium text-lg">Choose your preferred language to continue</p>
+        </div>
+        <div className="space-y-4">
+           {[
+              { code: 'mr', label: 'मराठी', sub: 'Marathi' }, 
+              { code: 'hi', label: 'हिंदी', sub: 'Hindi' }, 
+              { code: 'en', label: 'English', sub: 'English' }
+           ].map((l, i) => (
+              <button key={l.code} onClick={() => onSelect(l.code as Language)} 
+                className="w-full p-6 rounded-[2rem] border border-slate-100 bg-white hover:bg-emerald-600 hover:text-white hover:shadow-2xl hover:shadow-emerald-200/50 transition-all group flex items-center justify-between active:scale-95 shadow-sm"
+                style={{ animationDelay: `${i*100}ms` }}>
+                 <div className="text-left">
+                    <div className="text-2xl font-black">{l.label}</div>
+                    <div className="text-xs font-bold uppercase opacity-60 tracking-wider group-hover:text-emerald-100">{l.sub}</div>
+                 </div>
+                 <div className="w-10 h-10 rounded-full bg-slate-50 group-hover:bg-white/20 flex items-center justify-center transition-colors">
+                    <ChevronRight className="opacity-50 group-hover:opacity-100 group-hover:text-white" />
+                 </div>
+              </button>
+           ))}
+        </div>
+     </div>
   </div>
 );

@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     define: {
       // Securely pass the API_KEY from the server environment to the client
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || process.env.API_KEY),
+      'process.env.API_KEY': JSON.stringify("AIzaSyApknBXyPyJvGg10tiDGQVOrH6fKng4oco" || env.API_KEY || process.env.API_KEY),
     },
     server: {
       host: true,
