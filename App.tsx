@@ -393,6 +393,7 @@ const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProf
   const audioContextInRef = useRef<AudioContext | null>(null);
   const audioContextOutRef = useRef<AudioContext | null>(null);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  const micStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -406,24 +407,78 @@ const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProf
 
   const stopSession = () => {
     shouldBeActiveRef.current = false;
-    if (sessionRef.current) { sessionRef.current.close(); sessionRef.current = null; }
-    if (audioContextInRef.current) audioContextInRef.current.close();
-    if (audioContextOutRef.current) audioContextOutRef.current.close();
-    sourcesRef.current.forEach(s => s.stop());
+    if (sessionRef.current) { 
+        try {
+            sessionRef.current.close(); 
+        } catch (e) {
+            console.error("Error closing session:", e);
+        }
+        sessionRef.current = null; 
+    }
+    
+    // Stop microphone stream tracks
+    if (micStreamRef.current) {
+        micStreamRef.current.getTracks().forEach(track => track.stop());
+        micStreamRef.current = null;
+    }
+
+    if (audioContextInRef.current) {
+        try { audioContextInRef.current.close(); } catch(e) {}
+        audioContextInRef.current = null;
+    }
+    if (audioContextOutRef.current) {
+        try { audioContextOutRef.current.close(); } catch(e) {}
+        audioContextOutRef.current = null;
+    }
+    sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
     sourcesRef.current.clear();
     setIsActive(false);
+    setIsConnecting(false);
   };
 
   const startSession = async (isRetry = false) => {
     shouldBeActiveRef.current = true;
+    setIsConnecting(true);
+    
     try {
-      setIsConnecting(true);
+      if (!process.env.API_KEY) {
+          throw new Error("API Key is missing");
+      }
+
+      // Explicitly request microphone permission first to handle errors
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micStreamRef.current = stream;
+      } catch (err: any) {
+        console.error("Microphone permission error:", err);
+        let errorMsg = "Microphone access denied. Please check your permissions.";
+        if (err.name === 'NotAllowedError') errorMsg = "You denied microphone permission. Please allow it in browser settings.";
+        else if (err.name === 'NotFoundError') errorMsg = "No microphone found on this device.";
+        alert(errorMsg);
+        setIsConnecting(false);
+        return;
+      }
+
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      audioContextInRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-      audioContextOutRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const sourceMic = audioContextInRef.current.createMediaStreamSource(stream);
-      const scriptProcessor = audioContextInRef.current.createScriptProcessor(4096, 1, 1);
+      
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const ctxIn = new AudioContextClass({ sampleRate: 16000 });
+      const ctxOut = new AudioContextClass({ sampleRate: 24000 });
+      
+      audioContextInRef.current = ctxIn;
+      audioContextOutRef.current = ctxOut;
+
+      const sourceMic = ctxIn.createMediaStreamSource(stream);
+      const scriptProcessor = ctxIn.createScriptProcessor(4096, 1, 1);
+
+      // Create a gain node with 0 gain to mute local feedback while keeping the graph active
+      const muteGain = ctxIn.createGain();
+      muteGain.gain.value = 0;
+
+      sourceMic.connect(scriptProcessor);
+      scriptProcessor.connect(muteGain);
+      muteGain.connect(ctxIn.destination);
 
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-09-2025',
@@ -436,11 +491,14 @@ const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProf
         },
         callbacks: {
           onopen: () => {
-            setIsActive(true); setIsConnecting(false);
-            sourceMic.connect(scriptProcessor);
-            scriptProcessor.connect(audioContextInRef.current!.destination);
+            console.log("Session opened");
+            setIsActive(true); 
+            setIsConnecting(false);
+            
             scriptProcessor.onaudioprocess = (e) => {
-              const pcmBlob = createPCMChunk(e.inputBuffer.getChannelData(0));
+              if (!shouldBeActiveRef.current) return;
+              const inputData = e.inputBuffer.getChannelData(0);
+              const pcmBlob = createPCMChunk(inputData);
               sessionPromise.then(s => s?.sendRealtimeInput({ media: pcmBlob }));
             };
           },
@@ -462,12 +520,28 @@ const VoiceAssistant = ({ lang, user, onBack }: { lang: Language, user: UserProf
               source.start(); sourcesRef.current.add(source);
             }
           },
-          onerror: () => { if (shouldBeActiveRef.current) setTimeout(() => startSession(true), 1500); },
-          onclose: () => { if (shouldBeActiveRef.current) setTimeout(() => startSession(true), 1000); }
+          onerror: (err) => { 
+              console.error("Session error:", err);
+              if (shouldBeActiveRef.current) {
+                  // alert("Connection interrupted. Retrying...");
+                  // Optional: Retry logic
+              }
+          },
+          onclose: () => { 
+              console.log("Session closed");
+              if (shouldBeActiveRef.current) {
+                  setIsActive(false); 
+              }
+          }
         }
       });
       sessionRef.current = await sessionPromise;
-    } catch { setIsConnecting(false); }
+    } catch (error: any) { 
+        console.error("Start session failed:", error);
+        alert(`Could not start voice session: ${error.message}`);
+        setIsConnecting(false); 
+        stopSession();
+    }
   };
 
   return (
