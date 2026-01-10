@@ -28,7 +28,7 @@ export interface UserProfile {
   landSize: string;
   crop: string;
 }
-
+//chat message model
 export interface ChatMessage {
   id: string;
   role: 'user' | 'model';
