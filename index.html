@@ -1,120 +1,163 @@
-
 <!DOCTYPE html>
-<html lang="mr">
+<html lang="mr" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>AI कृषी मित्र</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Noto+Sans+Devanagari:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #059669;
-            --accent: #10b981;
+            --primary: #4f46e5;
+            --secondary: #06b6d4;
+            --accent: #d946ef;
         }
 
         body {
             font-family: 'Plus Jakarta Sans', 'Noto Sans Devanagari', sans-serif;
             -webkit-tap-highlight-color: transparent;
-            background-color: #f8fafc;
-            color: #0f172a;
-            overflow: hidden; /* App-like feel */
+            background-color: #020617;
+            color: #f8fafc;
+            overflow: hidden; /* Prevent scrolling on body, handle in app container */
+            width: 100%;
+            height: 100%;
+            overscroll-behavior-y: none;
         }
 
-        /* Custom Scrollbar for Desktop */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
+        /* PREMIUM LIQUID BACKGROUND */
+        .premium-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: -2;
+            background: #000000;
+            overflow: hidden;
         }
 
-        /* Hide Scrollbar for Mobile touch areas */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        .gradient-orb-1 {
+            position: absolute;
+            top: -20%;
+            left: -10%;
+            width: 80vw;
+            height: 80vw;
+            background: radial-gradient(circle, rgba(79, 70, 229, 0.4) 0%, rgba(0,0,0,0) 70%);
+            filter: blur(80px);
+            animation: orbFloat 10s ease-in-out infinite alternate;
+            opacity: 0.8;
         }
 
-        /* Modern Glass & Blur */
-        .glass {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.6);
+        .gradient-orb-2 {
+            position: absolute;
+            bottom: -10%;
+            right: -10%;
+            width: 90vw;
+            height: 90vw;
+            background: radial-gradient(circle, rgba(217, 70, 239, 0.3) 0%, rgba(0,0,0,0) 70%);
+            filter: blur(100px);
+            animation: orbFloat 15s ease-in-out infinite alternate-reverse;
+            opacity: 0.6;
         }
-        
-        .glass-dark {
-            background: rgba(15, 23, 42, 0.9);
+
+        .gradient-orb-3 {
+            position: absolute;
+            top: 40%;
+            left: 30%;
+            width: 60vw;
+            height: 60vw;
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.25) 0%, rgba(0,0,0,0) 70%);
+            filter: blur(90px);
+            animation: orbPulse 8s ease-in-out infinite;
+        }
+
+        /* SVG CURVE OVERLAY */
+        .curve-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 1440 320' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='grad1' x1='0%25' y1='0%25' x2='100%25' y2='0%25'%3E%3Cstop offset='0%25' style='stop-color:%234f46e5;stop-opacity:0.1' /%3E%3Cstop offset='100%25' style='stop-color:%23d946ef;stop-opacity:0.1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23grad1)' fill-opacity='1' d='M0,160L48,176C96,192,192,224,288,224C384,224,480,192,576,165.3C672,139,768,117,864,128C960,139,1056,181,1152,186.7C1248,192,1344,160,1392,144L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: bottom;
+            background-size: cover;
+            opacity: 0.5;
+        }
+
+        @keyframes orbFloat {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(20px, -20px) scale(1.05); }
+        }
+        @keyframes orbPulse {
+            0%, 100% { opacity: 0.4; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+
+        /* SCROLLBAR HIDDEN */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* CRYSTAL GLASSMORPHISM */
+        .glass-panel {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.3);
-        }
-
-        /* SVG Background Patterns */
-        .bg-grid-pattern {
-            background-image: linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
-                              linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
-            background-size: 24px 24px;
-        }
-
-        .bg-poly-emerald {
-            background-color: #059669;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath fill='%23047857' fill-opacity='0.4' d='M0 0h100v100H0z'/%3E%3Cpath fill='%23065f46' fill-opacity='0.4' d='M50 0l50 50-50 50L0 50z'/%3E%3C/svg%3E");
-            background-size: 60px 60px;
+            box-shadow: 
+                0 4px 24px -1px rgba(0, 0, 0, 0.2), 
+                inset 0 0 20px rgba(255, 255, 255, 0.02);
+            position: relative;
+            overflow: hidden;
         }
         
-        /* New Attractive Farm Polygon Pattern */
-        .bg-farm-poly {
-            background-color: #ffffff;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2000 1500'%3E%3Cdefs%3E%3CradialGradient id='a' gradientUnits='objectBoundingBox'%3E%3Cstop offset='0' stop-color='%23ECFDF5'/%3E%3Cstop offset='1' stop-color='%23ffffff'/%3E%3C/radialGradient%3E%3ClinearGradient id='b' gradientUnits='userSpaceOnUse' x1='0' y1='750' x2='1550' y2='750'%3E%3Cstop offset='0' stop-color='%23D1FAE5'/%3E%3Cstop offset='1' stop-color='%23ffffff'/%3E%3C/linearGradient%3E%3Cpath id='s' fill='url(%23b)' d='M1549.2 51.6c-5.4 99.1-20.2 197.6-44.2 293.6c-24.1 96-57.4 189.4-99.3 278.6c-41.9 89.2-92.4 174.1-150.3 253.3c-58 79.2-123.4 152.6-195.1 219c-71.7 66.4-149.6 125.8-232.2 177.2c-82.7 51.4-170.1 94.7-260.7 129.1c-90.6 34.4-184.4 60-279.5 76.3C192.6 1495 96.1 1502 0 1500c96.1-2.1 191.8-13.3 285.4-33.6c93.6-20.2 185-49.5 272.5-87.2c87.6-37.7 171.3-83.8 249.6-137.3c78.4-53.5 151.5-114.5 219.5-182.5c68-68 130.3-141.1 187-219.1c56.7-78 106.5-161.7 148.8-250c42.3-88.3 76.9-181.3 103.3-277.8c26.4-96.5 44-196.4 52.8-298.8c8.9-102.4 8.7-206.8 0-311.2c-8.7-104.4-26.3-207.2-52.6-306.2c-26.3-99-60.8-194-102.7-283.8c-41.9-89.8-91.4-175.2-147.9-254.8c-56.5-79.6-119.5-154.1-188.5-221.7c-69-67.6-143.7-128.8-223.1-182.2c-79.5-53.4-164.2-99.2-252.7-136.4c-88.5-37.2-180.8-66.8-274.9-88C189.6 24 93.3 11 0 0c96.1 2 192.7 9 288.3 25.2c95.6 16.3 189.4 41.9 280 76.3C658.9 135.9 746.3 179.2 829 230.6c82.7 51.4 160.6 110.8 232.3 177.2c71.7 66.4 137.1 139.8 195.1 219c58 79.2 108.5 164.1 150.3 253.3c41.9 89.2 75.2 182.6 99.3 278.6c24.1 96 38.9 194.5 44.3 293.6c5.3 99.1 1 199.3-12.9 298.1C1525.6 1424 1489 1500 1489 1500l511 0l0-1500l-438 0C1554.6 140 1554.6 40 1549.2 51.6z'/%3E%3C/defs%3E%3Cg transform='translate(0 0)'%3E%3Cg stroke='none' stroke-width='0'%3E%3Crect fill='url(%23a)' width='2000' height='1500'/%3E%3Cuse href='%23s' transform='translate(0 0) scale(1 1) rotate(0 1000 750)'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-            background-size: cover;
-            background-position: center;
+        .glass-panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
         }
 
-        /* Animations */
-        @keyframes fade-in-up {
-            from { opacity: 0; transform: translateY(20px); }
+        /* SAFE AREA UTILITIES */
+        .pt-safe-top { padding-top: max(1rem, env(safe-area-inset-top)); }
+        .pb-safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+        .mb-safe-bottom { margin-bottom: env(safe-area-inset-bottom); }
+        
+        /* 3D FLOATING ANIMATION */
+        .float-3d {
+            animation: float3d 6s ease-in-out infinite;
+        }
+        @keyframes float3d {
+            0%, 100% { transform: translateY(0) rotateX(0) rotateY(0); }
+            50% { transform: translateY(-10px) rotateX(2deg) rotateY(-2deg); }
+        }
+        
+        /* Entrance Animations */
+        @keyframes slide-up {
+            from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .animate-enter { animation: fade-in-up 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-        
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-6px); }
-        }
-        .animate-float { animation: float 3s ease-in-out infinite; }
-        
-        @keyframes spin-slow {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        .animate-spin-slow { animation: spin-slow 12s linear infinite; }
-
+        .animate-enter { animation: slide-up 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; opacity: 0; }
         .delay-100 { animation-delay: 100ms; }
         .delay-200 { animation-delay: 200ms; }
         .delay-300 { animation-delay: 300ms; }
-
     </style>
 <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react-dom/client": "https://esm.sh/react-dom@^19.2.3/client",
     "react/": "https://esm.sh/react@^19.2.3/",
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "framer-motion": "https://esm.sh/framer-motion@^11.0.8",
+    "clsx": "https://esm.sh/clsx@^2.1.1",
+    "tailwind-merge": "https://esm.sh/tailwind-merge@^2.3.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "express": "https://esm.sh/express@^5.2.1",
     "vite": "https://esm.sh/vite@^7.3.0",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
@@ -122,8 +165,14 @@
 }
 </script>
 </head>
-<body class="bg-slate-50 text-slate-900 selection:bg-emerald-200 selection:text-emerald-900">
-    <div id="root" class="h-full w-full"></div>
+<body class="text-slate-100 selection:bg-fuchsia-500 selection:text-white">
+    <div class="premium-bg">
+        <div class="gradient-orb-1"></div>
+        <div class="gradient-orb-2"></div>
+        <div class="gradient-orb-3"></div>
+        <div class="curve-overlay"></div>
+    </div>
+    <div id="root" class="h-full w-full relative"></div>
     <script type="module" src="/index.tsx"></script>
 </body>
 </html>
